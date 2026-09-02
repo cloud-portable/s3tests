@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>S3 compatibility report{{if .Target}} — {{.Target}}{{end}}</title>
+<style>
+body { font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; margin: 0; color: #333; background: #fff; }
+.wrapper { max-width: 60em; margin: 0 auto; padding: 20px 24px 60px; }
+h1 { font-size: 20px; font-weight: 500; margin: 0 0 16px; }
+h2 { font-size: 16px; font-weight: 500; margin: 32px 0 8px; }
+h2 a.top { font-size: 11px; font-weight: normal; margin-left: 8px; }
+a { color: #0074d9; text-decoration: none; }
+a:hover { text-decoration: underline; }
+.quiet { color: #999; }
+.metrics { margin: 0 0 12px; }
+.metric { display: inline-block; margin-right: 28px; vertical-align: top; }
+.metric .big { display: block; font-size: 26px; font-weight: bold; }
+.metric .label { font-size: 12px; color: #999; }
+.metric .fraction { font-size: 12px; color: #666; font-family: Consolas, Menlo, monospace; }
+.provenance { font-size: 12px; color: #999; margin-bottom: 20px; }
+table { border-collapse: collapse; width: 100%; }
+th, td { padding: 5px 10px; font-size: 13px; border-bottom: 1px solid #eee; text-align: left; }
+th { color: #666; font-weight: 500; border-bottom: 2px solid #ddd; }
+td.num, th.num { text-align: right; font-family: Consolas, Menlo, monospace; }
+tr.high { background: #e6f5d0; }
+tr.medium { background: #fff4c2; }
+tr.low { background: #fce1e5; }
+.bar { display: inline-block; width: 100px; height: 10px; background: #fce1e5; vertical-align: middle; }
+.bar .fill { display: block; height: 10px; background: #a5d68a; }
+.badge { display: inline-block; min-width: 52px; text-align: center; padding: 1px 7px; border-radius: 3px; font-size: 11px; color: #fff; }
+.badge.pass { background: #4c8b2b; }
+.badge.fail { background: #c0392b; }
+.badge.blocked { background: #c98a06; }
+.badge.error { background: #7d3c98; }
+.badge.skipped { background: #999; }
+td.dur { color: #999; font-size: 12px; font-family: Consolas, Menlo, monospace; text-align: right; white-space: nowrap; }
+tr.detail td { border-bottom: 1px solid #eee; padding: 2px 10px 8px 84px; }
+details summary { cursor: pointer; font-size: 12px; color: #666; }
+details pre { background: #f8f8f8; border: 1px solid #eee; padding: 8px 10px; font-size: 12px; font-family: Consolas, Menlo, monospace; overflow-x: auto; margin: 6px 0 0; }
+.reason { font-size: 12px; color: #666; }
+.warning { font-size: 12px; color: #c98a06; }
+footer { margin-top: 40px; font-size: 11px; color: #999; border-top: 1px solid #eee; padding-top: 10px; }
+</style>
+</head>
+<body>
+<div class="wrapper" id="top">
+<h1>S3 compatibility report{{if .Target}} <span class="quiet">— {{.Target}}</span>{{end}}</h1>
+
+<div class="metrics">
+  <div class="metric">
+    <span class="big">{{.Rate.Pct}}</span>
+    <span class="label">Pass</span>
+    <span class="fraction">{{.Totals.Pass}}/{{.Totals.Attempted}}</span>
+  </div>
+  <div class="metric">
+    <span class="big">{{.Totals.Fail}}</span>
+    <span class="label">Fail</span>
+  </div>
+  <div class="metric">
+    <span class="big">{{.Totals.Blocked}}</span>
+    <span class="label">Blocked</span>
+  </div>
+  <div class="metric">
+    <span class="big">{{.Totals.Errors}}</span>
+    <span class="label">Runner errors</span>
+  </div>
+  <div class="metric">
+    <span class="big">{{.Totals.Skipped}}</span>
+    <span class="label">Skipped</span>
+  </div>
+</div>
+
+<div class="provenance">
+  {{if .CorpusVersion}}corpus {{.CorpusVersion}}{{end}}
+  {{- range .Properties}} · {{.Name}}: {{.Value}}{{end}}
+</div>
+
+<table class="summary">
+  <thead>
+    <tr>
+      <th>Group</th><th></th><th class="num">Pass %</th><th class="num">Pass</th>
+      <th class="num">Fail</th><th class="num">Blocked</th><th class="num">Errors</th>
+      <th class="num">Skipped</th><th class="num">Total</th>
+    </tr>
+  </thead>
+  <tbody>
+  {{range .Groups}}
+    <tr class="{{.Rate.Class}}">
+      <td><a href="#group-{{.Name}}">{{.Name}}</a></td>
+      <td><span class="bar"><span class="fill" style="width: {{.Rate.Width}}%"></span></span></td>
+      <td class="num">{{.Rate.Pct}}</td>
+      <td class="num">{{.Counts.Pass}}</td>
+      <td class="num">{{.Counts.Fail}}</td>
+      <td class="num">{{.Counts.Blocked}}</td>
+      <td class="num">{{.Counts.Errors}}</td>
+      <td class="num">{{.Counts.Skipped}}</td>
+      <td class="num">{{.Counts.Total}}</td>
+    </tr>
+  {{end}}
+  </tbody>
+</table>
+
+{{range .Groups}}
+<h2 id="group-{{.Name}}">{{.Name}} <span class="quiet">{{.Rate.Pct}}</span> <a class="top" href="#top">back to top</a></h2>
+<table>
+  <tbody>
+  {{range .Vectors}}
+    <tr>
+      <td style="width: 64px"><span class="badge {{.Badge}}">{{.Badge}}</span></td>
+      <td style="white-space: nowrap">{{.ID}}</td>
+      <td>{{.Title}}</td>
+      <td class="dur">{{.Duration}}</td>
+    </tr>
+    {{if or .Reason .Summary .Warnings}}
+    <tr class="detail">
+      <td colspan="4">
+        {{if .Reason}}<div class="reason">{{.Reason}}</div>{{end}}
+        {{if .Summary}}{{if .Detail}}<details><summary>{{.Summary}}</summary><pre>{{.Detail}}</pre></details>{{else}}<div class="reason">{{.Summary}}</div>{{end}}{{end}}
+        {{range .Warnings}}<div class="warning">warning: {{.}}</div>{{end}}
+      </td>
+    </tr>
+    {{end}}
+  {{end}}
+  </tbody>
+</table>
+{{end}}
+
+<footer>generated by s3tests{{if .CorpusVersion}} · corpus {{.CorpusVersion}}{{end}}</footer>
+</div>
+</body>
+</html>

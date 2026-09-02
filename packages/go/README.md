@@ -1,0 +1,216 @@
+# s3tests — Go runner
+
+A programmatic Go runner for the language-independent
+[S3 compatibility test vectors](https://github.com/cloud-portable/s3vectors).
+It executes every `api`-kind vector against an S3 endpoint — provisioning
+prerequisites, interpolating placeholders, dispatching operations through
+`aws-sdk-go-v2`, sending raw wire-level requests for `$http` steps, minting
+presigned URLs — and evaluates the corpus's expectation matchers, reporting
+one of four outcomes per vector: `pass`, `fail`, `blocked` or `skipped`.
+
+```
+go get github.com/cloud-portable/s3tests/packages/go
+```
+
+## Usage
+
+```go
+import (
+    "github.com/aws/aws-sdk-go-v2/credentials"
+    s3tests "github.com/cloud-portable/s3tests/packages/go"
+    s3vectors "github.com/cloud-portable/s3vectors/packages/go"
+)
+
+runner, err := s3tests.New(s3tests.Config{
+    Endpoint:    "http://127.0.0.1:9000",
+    Credentials: credentials.NewStaticCredentialsProvider("YOUR_ACCESS_KEY_ID", "YOUR_SECRET_ACCESS_KEY", ""),
+})
+if err != nil { ... }
+
+// Select what to run: filters are plain functions ANDed together by
+// ApplyFilters, so custom selections compose with the built-ins.
+vectors, err := s3tests.Vectors() // the whole corpus, in manifest order
+if err != nil { ... }
+selected := s3tests.ApplyFilters(vectors,
+    s3tests.Groups("object-crud", "multipart"),
+    s3tests.Tags("tier-1"),                  // vector has ≥1 listed tag
+    s3tests.ExcludeIDs("multipart-0042"),    // skip-list
+    func(v *s3vectors.Vector) bool { return len(v.Steps) < 20 }, // custom
+)
+
+// Run executes exactly the vectors given, streaming one VectorResult per
+// vector as it completes. Breaking out of the loop, or cancelling ctx,
+// cancels the rest of the run; in-flight vectors still tear down.
+counts := map[s3tests.Outcome]int{}
+var failures []s3tests.VectorResult
+for v := range runner.Run(ctx, selected) {
+    fmt.Printf("%-8s %s\n", v.Outcome, v.ID)
+    counts[v.Outcome]++
+    if v.Outcome == s3tests.Fail {
+        failures = append(failures, v)
+    }
+}
+
+fmt.Printf("corpus %s: %d pass, %d fail, %d blocked, %d skipped\n",
+    runner.CorpusVersion(), counts[s3tests.Pass], counts[s3tests.Fail],
+    counts[s3tests.Blocked], counts[s3tests.Skipped])
+for _, v := range failures {
+    step := v.Steps[len(v.Steps)-1]
+    fmt.Printf("%s step %d (%s):\n", v.ID, step.Index+1, step.Name)
+    for _, f := range step.Failures {
+        fmt.Printf("  %s: expected %s, got %s\n", f.Field, f.Expected, f.Actual)
+    }
+}
+```
+
+Test against real credentials for a *disposable* test account/tenant — the
+runner creates and deletes buckets and objects, and a handful of object-lock
+vectors create COMPLIANCE-retained objects whose buckets **cannot be deleted
+until 2999** (they surface in `VectorResult.Warnings`; the `BucketPrefix`
+makes them identifiable). Never point it at an account holding data you care
+about.
+
+## Prerequisites and identities
+
+- `$bucket` / `$object` prerequisites are provisioned by `Config.Provisioner`
+  — the built-in `DefaultProvisioner` uses the endpoint itself
+  (`CreateBucket` / `PutObject`); supply your own implementation to provision
+  out-of-band. Teardown (emptying and deleting each vector's buckets) is part
+  of the same interface and always best-effort: problems become
+  `VectorResult.Warnings`, never failures.
+- `$credential` prerequisites need a second identity, which is
+  server-specific: supply `Config.ProvisionCredential`. Without it, the ~56
+  vectors requiring one report `blocked` (not `fail`), per the corpus's
+  outcome semantics.
+- Step identities `main`, `anonymous` (unsigned) and `invalid` (well-formed
+  signature, unknown key) are handled internally.
+
+## Outcomes and reporting
+
+Outcome semantics follow the corpus spec: a failed *prerequisite* is
+`blocked` and a violated *expectation* is `fail`. The `skipped` outcome
+exists for consumers that synthesize results for vectors they filtered out
+of the run (keeping reports comparable across differently-filtered runs);
+the runner itself only executes what it is given. `VectorResult` carries the
+stable vector id, group, tags and
+per-step expected-vs-actual detail, and `Runner.CorpusVersion()` reports the
+corpus snapshot — everything needed to emit JUnit XML/CTRF/TAP as
+recommended in the corpus's
+[reporting guide](https://github.com/cloud-portable/s3vectors/blob/main/docs/reporting.md).
+
+`VectorResult.RunnerError` distinguishes "the runner could not execute this
+vector" (unresolvable placeholder, unsupported operation) from a genuine
+compatibility failure; such vectors still count as `fail`, but reports can
+label them differently.
+
+### Report formats
+
+The [`report`](report) subpackage holds the shared run metadata
+(`report.Meta`); each reporter lives in its own subpackage —
+[`report/junit`](report/junit), [`report/html`](report/html) and
+[`report/gotest`](report/gotest) today, CTRF and TAP planned. Formatters
+consume the `iter.Seq` that `Run` returns, so a run can stream straight into
+a report file:
+
+```go
+import (
+    "github.com/cloud-portable/s3tests/packages/go/report"
+    "github.com/cloud-portable/s3tests/packages/go/report/junit"
+)
+
+f, _ := os.Create("results.xml")
+defer f.Close()
+err := junit.Write(f, runner.Run(ctx, vectors), report.Meta{
+    CorpusVersion: runner.CorpusVersion(),
+    Target:        "MinIO RELEASE.2026-07-01",
+})
+```
+
+(Or collect first and pass `slices.Values(results)` to format the same run
+multiple ways.) For human inspection, `report/html` renders the same inputs
+as a single self-contained HTML page — istanbul/c8-style summary numbers, a
+per-group table with pass-rate tinting and fraction bars, and per-vector
+expected-vs-actual detail — with inline CSS, no JavaScript, and deterministic
+output (no timestamps):
+
+```go
+import htmlreport "github.com/cloud-portable/s3tests/packages/go/report/html"
+
+f, _ := os.Create("report.html")
+defer f.Close()
+err := htmlreport.Write(f, runner.Run(ctx, vectors), report.Meta{
+    CorpusVersion: runner.CorpusVersion(),
+    Target:        "MinIO RELEASE.2026-07-01",
+})
+```
+
+The JUnit mapping follows the reporting guide: one
+`<testcase>` per vector (`classname` = group), `blocked` →
+`<skipped message="blocked: ...">`, corpus version and target as suite
+`<properties>`, vector tags as a per-case property. Vectors with a
+`RunnerError` become JUnit `<error>` elements (test could not run), distinct
+from `<failure>` (expectation violated). `Meta.OmitSkipped` drops
+filter-skipped vectors from the report.
+
+### Running under `go test`
+
+The [`report/gotest`](report/gotest) subpackage reports each vector as a
+`t.Run` subtest, so `go test` itself is the text reporter — plain output,
+`-v` for per-vector detail, and `go test`-based CI comes for free:
+
+```go
+import "github.com/cloud-portable/s3tests/packages/go/report/gotest"
+
+func TestS3Compat(t *testing.T) {
+    runner, err := s3tests.New(cfg)
+    if err != nil {
+        t.Fatal(err)
+    }
+    vectors, err := s3tests.Vectors()
+    if err != nil {
+        t.Fatal(err)
+    }
+    gotest.Run(t, runner.Run(t.Context(), s3tests.ApplyFilters(vectors, s3tests.Groups("object-crud"))))
+}
+```
+
+Passing vectors log their title and real duration (under `-v`), failures
+`t.Fatal` with the failing step's expected-vs-actual detail, and
+blocked/skipped vectors skip their subtest with a `blocked:`/`skipped:`
+prefixed reason. Note `go test -run 'TestS3Compat/multipart-0007'` filters
+which subtests are *reported*, not which vectors *execute* — select vectors
+before the run instead (`s3tests.ApplyFilters`).
+
+## Client behavior
+
+The runner's SDK clients are tuned so the vectors own their wire bytes:
+path-style addressing (default; `Config.VirtualHostStyle` switches), no
+retries, no implicit request checksums or response checksum validation, no
+`Expect: 100-continue`. `$http` steps are sent over raw sockets (the
+wire-header vectors send headers `net/http` refuses to emit) and SigV4-signed
+with the SDK's signer without path normalization.
+
+## Known limitations
+
+- `lifecycle-config-0010` uses `PutBucketLifecycle`, which aws-sdk-go-v2
+  removed; it always reports `fail` with a `RunnerError`.
+- `$matches` patterns are, per the spec, a portable subset valid in both
+  ECMA-262 and RE2 (no lookarounds/backreferences), so they run on Go's
+  stdlib `regexp`.
+- Error codes that cannot appear on the wire (HEAD responses, 304s) are
+  matched via a small status→code map.
+- Multi-valued response headers are matched against their first value.
+- `signing`-kind vectors (offline SigV4 algorithm tests) are out of scope for
+  this runner and never loaded.
+
+## Development
+
+```
+make test         # vet + unit tests + offline all-corpus smoke test
+make integration  # runs curated groups against a disposable MinIO container
+```
+
+The offline corpus smoke test dry-runs all 1160 api vectors (interpolates
+every placeholder, decodes every operation input, compiles every regex,
+parses every capture path) and fails on any drift when the corpus version
+bumps.
