@@ -11,6 +11,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.36
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.107.2
 	github.com/aws/smithy-go v1.27.8
+	github.com/cbroglie/mustache v1.4.2
 	github.com/cloud-portable/s3vectors/packages/go v0.0.0-00010101000000-000000000000
 )
 

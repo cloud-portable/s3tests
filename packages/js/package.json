@@ -1,0 +1,52 @@
+{
+  "name": "@cloud-portable/s3tests",
+  "version": "0.0.0",
+  "description": "Runner for the language-independent S3 API compatibility test vectors",
+  "license": "Apache-2.0 OR MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "bin": {
+    "s3tests": "./bin/s3tests.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.js"
+    },
+    "./report/junit": {
+      "types": "./report/junit.d.ts",
+      "default": "./report/junit.js"
+    },
+    "./report/html": {
+      "types": "./report/html.d.ts",
+      "default": "./report/html.js"
+    },
+    "./report/nodetest": {
+      "types": "./report/nodetest.d.ts",
+      "default": "./report/nodetest.js"
+    }
+  },
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "lib",
+    "report",
+    "bin",
+    "LICENSE.md"
+  ],
+  "scripts": {
+    "test": "node ../../scripts/sync-report-template.js --check && node --test"
+  },
+  "dependencies": {
+    "@aws-crypto/sha256-js": "^5.2.0",
+    "@aws-sdk/client-s3": "^3.879.0",
+    "@aws-sdk/s3-request-presigner": "^3.879.0",
+    "@cloud-portable/s3vectors": "file:../../../s3vectors/packages/js",
+    "@smithy/node-http-handler": "^4.0.0",
+    "@smithy/protocol-http": "^5.0.0",
+    "@smithy/signature-v4": "^5.0.0",
+    "mustache": "^4.2.0"
+  }
+}

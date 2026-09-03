@@ -23,20 +23,20 @@ import "time"
 type Meta struct {
 	// CorpusVersion is the vector corpus snapshot the run used (from
 	// Runner.CorpusVersion()). Emitted as the "corpusVersion" property.
-	CorpusVersion string
+	CorpusVersion string `json:"corpusVersion,omitempty"`
 	// Target is a human-readable identifier of the server under test, e.g.
 	// "MinIO RELEASE.2026-07-01". Emitted as the "target" property when set.
-	Target string
+	Target string `json:"target,omitempty"`
 	// Properties are extra run-level properties (emitted in sorted key
 	// order).
-	Properties map[string]string
+	Properties map[string]string `json:"properties,omitempty"`
 	// GeneratedAt, when set, is stamped into reports as the generation time
 	// (rendered in UTC). It is deliberately caller-supplied — reporters never
 	// call time.Now() — so output stays a pure function of its inputs; leave
 	// it zero to omit.
-	GeneratedAt time.Time
+	GeneratedAt time.Time `json:"generatedAt,omitzero"`
 	// OmitSkipped drops Outcome==Skipped vectors from the report. The
 	// default (false) is faithful to the reporting guide and keeps result
 	// sets comparable, but a narrowly filtered run reports mostly skips.
-	OmitSkipped bool
+	OmitSkipped bool `json:"omitSkipped,omitempty"`
 }

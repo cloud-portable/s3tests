@@ -1,0 +1,79 @@
+{
+  "meta": {
+    "corpusVersion": "1.0.0",
+    "target": "Fixture Store v1.2 <edge & \"case\" 'chars' / `tick` = eq>",
+    "properties": {
+      "zeta": "z / value",
+      "alpha": "a & value",
+      "commit": "storage-test@1754e86"
+    },
+    "generatedAt": "2026-09-03T14:05:06+02:00"
+  },
+  "results": [
+    {
+      "id": "multipart-0001",
+      "group": "multipart",
+      "title": "two-part multipart upload with read-back",
+      "tags": ["tier-1", "multipart"],
+      "source": "https://github.com/example/tests/blob/main/tests.json#L7",
+      "outcome": "pass",
+      "duration": 1234500000
+    },
+    {
+      "id": "multipart-0007",
+      "group": "multipart",
+      "title": "bad part etag <script>alert('x & y')</script>",
+      "tags": ["tier-1", "multipart", "errors"],
+      "outcome": "fail",
+      "steps": [
+        {"index": 0, "kind": "operation", "name": "CreateMultipartUpload", "identity": "main", "status": 200, "passed": true, "duration": 20000000},
+        {"index": 2, "kind": "operation", "name": "CompleteMultipartUpload", "identity": "main", "status": 200, "passed": false,
+         "err": "transport hiccup",
+         "failures": [
+           {"field": "status", "expected": "400", "actual": "200"},
+           {"field": "error", "expected": "InvalidPart & \"<quoted>\" = 'tricky' / `tick`", "actual": "(no error)"}
+         ],
+         "duration": 41500000}
+      ],
+      "duration": 61500000
+    },
+    {
+      "id": "lifecycle-config-0010",
+      "group": "lifecycle-config",
+      "title": "legacy lifecycle API",
+      "tags": ["tier-3", "lifecycle-config"],
+      "outcome": "fail",
+      "runnerError": "operation PutBucketLifecycle is not supported",
+      "steps": [
+        {"index": 1, "kind": "operation", "name": "PutBucketLifecycle", "identity": "main", "status": 0, "passed": false,
+         "err": "operation PutBucketLifecycle is not supported", "duration": 1000000}
+      ],
+      "duration": 2000000
+    },
+    {
+      "id": "versioning-0003",
+      "group": "versioning",
+      "title": "versioned bucket prerequisite",
+      "tags": ["tier-2", "versioning"],
+      "outcome": "blocked",
+      "reason": "prerequisite $bucket b1: simulated outage",
+      "duration": 500000
+    },
+    {
+      "id": "versioning-0004",
+      "group": "versioning",
+      "outcome": "skipped",
+      "reason": "excluded by tag filter: slow",
+      "duration": 0
+    },
+    {
+      "id": "object-crud-0169",
+      "group": "object-crud",
+      "title": "nested key under an existing file key",
+      "tags": ["tier-1", "object-crud"],
+      "outcome": "pass",
+      "warnings": ["teardown x: BucketNotEmpty & \"quoted\" <detail>"],
+      "duration": 65432100000
+    }
+  ]
+}

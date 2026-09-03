@@ -13,9 +13,14 @@ package per language.
 | Language | Package | Status |
 |---|---|---|
 | Go | [packages/go](packages/go) — `github.com/cloud-portable/s3tests/packages/go` | Library and CLI |
-| JavaScript | — | planned |
+| JavaScript | [packages/js](packages/js) — `@cloud-portable/s3tests` | Library and CLI |
 | Python | — | planned |
 | Rust | — | planned |
+
+The HTML report page template is shared across implementations
+([`shared/report/page.mustache`](shared/report/page.mustache)); every runner's
+HTML reporter renders byte-identical output for the same results, pinned by a
+cross-language golden file.
 
 See each package's README for usage. The corpus's normative semantics
 (placeholder grammar, matcher semantics, generated data, outcome semantics)

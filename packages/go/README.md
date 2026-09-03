@@ -1,4 +1,4 @@
-# s3tests — Go runner
+# s3tests
 
 A runner for the language-independent
 [S3 compatibility test vectors](https://github.com/cloud-portable/s3vectors).

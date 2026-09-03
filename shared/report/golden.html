@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>S3 compatibility report{{if .Target}}: {{.Target}}{{end}}</title>
+<title>S3 compatibility report: Fixture Store v1.2 &lt;edge &amp; &#34;case&#34; &#39;chars&#39; / `tick` = eq&gt;</title>
 <style>
 :root {
   --bg-primary: #090d16;
@@ -384,17 +384,12 @@ footer { margin-top: 3rem; padding-top: 1.5rem; }
 
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; }
-  .op-card:hover { transform: none; }
 }
 
 @media (max-width: 600px) {
   .header-top { flex-direction: column; align-items: flex-start; }
   .disclosure-trigger { padding: 1rem; }
   .disclosure-content { padding: 1rem; }
-  .ops-grid { grid-template-columns: repeat(2, 1fr); gap: 0.5rem; }
-  .op-card { padding: 0.6rem 0.75rem; }
-  .op-name { font-size: 0.75rem; }
-  .status-indicator { font-size: 0.65rem; }
 }
 </style>
 </head>
@@ -404,23 +399,23 @@ footer { margin-top: 3rem; padding-top: 1.5rem; }
   <header>
     <div class="header-top">
       <div>
-        {{if .Target}}<p class="eyebrow">S3 compatibility report</p>
-        <h1>{{.Target}}</h1>{{else}}<h1>S3 compatibility report</h1>{{end}}
+        <p class="eyebrow">S3 compatibility report</p>
+        <h1>Fixture Store v1.2 &lt;edge &amp; &#34;case&#34; &#39;chars&#39; / `tick` = eq&gt;</h1>
         <p class="provider-title">
-          {{if .CorpusVersion}}<span class="inline-badge">corpus {{.CorpusVersion}}</span>{{end}}
-          <span class="inline-badge">{{.Totals.PassPct}} pass ({{.Totals.Pass}}/{{.Totals.Attempted}})</span>
-          <span class="inline-badge">test time {{.TotalTime}}</span>
-          {{- range .Properties}}
-          <span class="inline-badge">{{.Name}}: {{.Value}}</span>
-          {{- end}}
+          <span class="inline-badge">corpus 1.0.0</span>
+          <span class="inline-badge">40.0% pass (2/5)</span>
+          <span class="inline-badge">test time 1m7s</span>
+          <span class="inline-badge">alpha: a &amp; value</span>
+          <span class="inline-badge">commit: storage-test@1754e86</span>
+          <span class="inline-badge">zeta: z / value</span>
         </p>
       </div>
       <div class="split-badge">
-        <a class="green" href="#groups" title="View all results">{{.Totals.Pass}} pass</a>
-        {{- if .Totals.Fail}}<a class="red" {{if .FirstFail}}href="#v-{{.FirstFail}}" title="Jump to first failure"{{end}}>{{.Totals.Fail}} fail</a>{{end}}
-        {{- if .Totals.Blocked}}<a class="amber" href="#groups">{{.Totals.Blocked}} blocked</a>{{end}}
-        {{- if .Totals.Errors}}<a class="violet" href="#groups">{{.Totals.Errors}} errors</a>{{end}}
-        {{- if .Totals.Skipped}}<a class="grey" href="#groups">{{.Totals.Skipped}} skipped</a>{{end}}
+        <a class="green" href="#groups" title="View all results">2 pass</a>
+        <a class="red" href="#v-multipart-0007" title="Jump to first failure">1 fail</a>
+        <a class="amber" href="#groups">1 blocked</a>
+        <a class="violet" href="#groups">1 errors</a>
+        <a class="grey" href="#groups">1 skipped</a>
       </div>
     </div>
   </header>
@@ -435,63 +430,212 @@ footer { margin-top: 3rem; padding-top: 1.5rem; }
         </tr>
       </thead>
       <tbody>
-      {{range .Groups}}
-        <tr class="{{.PctClass}}">
-          <td class="group"><a href="#group-{{.Name}}">{{.Name}}</a></td>
-          <td><span class="bar"><span class="fill" style="width: {{.BarWidth}}%"></span></span></td>
-          <td class="num pct {{.PctClass}}">{{.Counts.PassPct}}</td>
-          <td class="num">{{.Counts.Pass}}</td>
-          <td class="num{{if not .Counts.Fail}} zero{{end}}">{{.Counts.Fail}}</td>
-          <td class="num{{if not .Counts.Blocked}} zero{{end}}">{{.Counts.Blocked}}</td>
-          <td class="num{{if not .Counts.Errors}} zero{{end}}">{{.Counts.Errors}}</td>
-          <td class="num{{if not .Counts.Skipped}} zero{{end}}">{{.Counts.Skipped}}</td>
-          <td class="num">{{.Counts.Total}}</td>
+        <tr class="low">
+          <td class="group"><a href="#group-lifecycle-config">lifecycle-config</a></td>
+          <td><span class="bar"><span class="fill" style="width: 0%"></span></span></td>
+          <td class="num pct low">0.0%</td>
+          <td class="num">0</td>
+          <td class="num zero">0</td>
+          <td class="num zero">0</td>
+          <td class="num">1</td>
+          <td class="num zero">0</td>
+          <td class="num">1</td>
         </tr>
-      {{end}}
+        <tr class="medium">
+          <td class="group"><a href="#group-multipart">multipart</a></td>
+          <td><span class="bar"><span class="fill" style="width: 50%"></span></span></td>
+          <td class="num pct medium">50.0%</td>
+          <td class="num">1</td>
+          <td class="num">1</td>
+          <td class="num zero">0</td>
+          <td class="num zero">0</td>
+          <td class="num zero">0</td>
+          <td class="num">2</td>
+        </tr>
+        <tr class="high">
+          <td class="group"><a href="#group-object-crud">object-crud</a></td>
+          <td><span class="bar"><span class="fill" style="width: 100%"></span></span></td>
+          <td class="num pct high">100.0%</td>
+          <td class="num">1</td>
+          <td class="num zero">0</td>
+          <td class="num zero">0</td>
+          <td class="num zero">0</td>
+          <td class="num zero">0</td>
+          <td class="num">1</td>
+        </tr>
+        <tr class="low">
+          <td class="group"><a href="#group-versioning">versioning</a></td>
+          <td><span class="bar"><span class="fill" style="width: 0%"></span></span></td>
+          <td class="num pct low">0.0%</td>
+          <td class="num">0</td>
+          <td class="num zero">0</td>
+          <td class="num">1</td>
+          <td class="num zero">0</td>
+          <td class="num">1</td>
+          <td class="num">2</td>
+        </tr>
       </tbody>
     </table>
   </section>
 
-  {{range .Groups}}
-  <details class="disclosure-section" id="group-{{.Name}}"{{if .Open}} open{{end}}>
+  <details class="disclosure-section" id="group-lifecycle-config" open>
     <summary class="disclosure-trigger">
-      <span>{{.Name}} <span class="counts">{{.Counts.Pass}}/{{.Counts.Attempted}} passed</span></span>
+      <span>lifecycle-config <span class="counts">0/1 passed</span></span>
       <span class="disclosure-icon">&#9656;</span>
     </summary>
     <div class="disclosure-content">
       <div class="test-list">
-      {{range .Vectors}}
-        <div class="test-item {{.Badge}}" id="v-{{.ID}}">
+        <div class="test-item error" id="v-lifecycle-config-0010">
           <details>
             <summary class="test-header">
-              <span class="test-name">{{.ID}}</span>
+              <span class="test-name">lifecycle-config-0010</span>
               <span class="test-meta">
-                <span class="test-duration">{{.Duration}}</span>
-                <span class="badge badge-{{.Badge}}">{{.Badge}}</span>
+                <span class="test-duration">0.002s</span>
+                <span class="badge badge-error">error</span>
               </span>
             </summary>
             <div class="test-details">
-              {{if or .Title .Tags}}<div class="test-desc">
-                {{if .Title}}<p class="test-title">{{.Title}}</p>{{end}}
-                {{if .Tags}}<div class="test-tags">{{range .Tags}}<span class="tag">{{.}}</span>{{end}}</div>{{end}}
-              </div>{{end}}
-              {{if or .Reason .Summary .Detail .Warnings}}<div class="test-outcome">
-                {{if .Reason}}<p class="test-reason">{{.Reason}}</p>{{end}}
-                {{if .Summary}}<div class="test-error-msg">{{.Summary}}</div>{{end}}
-                {{if .Detail}}<div class="code-label">Expected vs actual</div><div class="test-stack">{{.Detail}}</div>{{end}}
-                {{range .Warnings}}<p class="test-warning">warning: {{.}}</p>{{end}}
-              </div>{{end}}
-              {{if .Source}}<a href="{{.Source}}" target="_blank" rel="noopener" class="external-run-link">View vector source &nearr;</a>{{end}}
+              <div class="test-desc">
+                <p class="test-title">legacy lifecycle API</p>
+                <div class="test-tags"><span class="tag">tier-3</span><span class="tag">lifecycle-config</span></div>
+              </div>
+              <div class="test-outcome">
+                <div class="test-error-msg">runner error: operation PutBucketLifecycle is not supported</div>
+              </div>
             </div>
           </details>
         </div>
-      {{end}}
       </div>
     </div>
   </details>
-  {{end}}
+  <details class="disclosure-section" id="group-multipart" open>
+    <summary class="disclosure-trigger">
+      <span>multipart <span class="counts">1/2 passed</span></span>
+      <span class="disclosure-icon">&#9656;</span>
+    </summary>
+    <div class="disclosure-content">
+      <div class="test-list">
+        <div class="test-item pass" id="v-multipart-0001">
+          <details>
+            <summary class="test-header">
+              <span class="test-name">multipart-0001</span>
+              <span class="test-meta">
+                <span class="test-duration">1.235s</span>
+                <span class="badge badge-pass">pass</span>
+              </span>
+            </summary>
+            <div class="test-details">
+              <div class="test-desc">
+                <p class="test-title">two-part multipart upload with read-back</p>
+                <div class="test-tags"><span class="tag">tier-1</span><span class="tag">multipart</span></div>
+              </div>
+              <a href="https://github.com/example/tests/blob/main/tests.json#L7" target="_blank" rel="noopener" class="external-run-link">View vector source &nearr;</a>
+            </div>
+          </details>
+        </div>
+        <div class="test-item fail" id="v-multipart-0007">
+          <details>
+            <summary class="test-header">
+              <span class="test-name">multipart-0007</span>
+              <span class="test-meta">
+                <span class="test-duration">0.062s</span>
+                <span class="badge badge-fail">fail</span>
+              </span>
+            </summary>
+            <div class="test-details">
+              <div class="test-desc">
+                <p class="test-title">bad part etag &lt;script&gt;alert(&#39;x &amp; y&#39;)&lt;/script&gt;</p>
+                <div class="test-tags"><span class="tag">tier-1</span><span class="tag">multipart</span><span class="tag">errors</span></div>
+              </div>
+              <div class="test-outcome">
+                <div class="test-error-msg">step 3 (CompleteMultipartUpload) failed</div>
+                <div class="code-label">Expected vs actual</div><div class="test-stack">transport hiccup
+status: expected 400, got 200
+error: expected InvalidPart &amp; &#34;&lt;quoted&gt;&#34; = &#39;tricky&#39; / `tick`, got (no error)</div>
+              </div>
+            </div>
+          </details>
+        </div>
+      </div>
+    </div>
+  </details>
+  <details class="disclosure-section" id="group-object-crud">
+    <summary class="disclosure-trigger">
+      <span>object-crud <span class="counts">1/1 passed</span></span>
+      <span class="disclosure-icon">&#9656;</span>
+    </summary>
+    <div class="disclosure-content">
+      <div class="test-list">
+        <div class="test-item pass" id="v-object-crud-0169">
+          <details>
+            <summary class="test-header">
+              <span class="test-name">object-crud-0169</span>
+              <span class="test-meta">
+                <span class="test-duration">65.432s</span>
+                <span class="badge badge-pass">pass</span>
+              </span>
+            </summary>
+            <div class="test-details">
+              <div class="test-desc">
+                <p class="test-title">nested key under an existing file key</p>
+                <div class="test-tags"><span class="tag">tier-1</span><span class="tag">object-crud</span></div>
+              </div>
+              <div class="test-outcome">
+                <p class="test-warning">warning: teardown x: BucketNotEmpty &amp; &#34;quoted&#34; &lt;detail&gt;</p>
+              </div>
+            </div>
+          </details>
+        </div>
+      </div>
+    </div>
+  </details>
+  <details class="disclosure-section" id="group-versioning">
+    <summary class="disclosure-trigger">
+      <span>versioning <span class="counts">0/1 passed</span></span>
+      <span class="disclosure-icon">&#9656;</span>
+    </summary>
+    <div class="disclosure-content">
+      <div class="test-list">
+        <div class="test-item blocked" id="v-versioning-0003">
+          <details>
+            <summary class="test-header">
+              <span class="test-name">versioning-0003</span>
+              <span class="test-meta">
+                <span class="test-duration">0.001s</span>
+                <span class="badge badge-blocked">blocked</span>
+              </span>
+            </summary>
+            <div class="test-details">
+              <div class="test-desc">
+                <p class="test-title">versioned bucket prerequisite</p>
+                <div class="test-tags"><span class="tag">tier-2</span><span class="tag">versioning</span></div>
+              </div>
+              <div class="test-outcome">
+                <p class="test-reason">blocked: prerequisite $bucket b1: simulated outage</p>
+              </div>
+            </div>
+          </details>
+        </div>
+        <div class="test-item skipped" id="v-versioning-0004">
+          <details>
+            <summary class="test-header">
+              <span class="test-name">versioning-0004</span>
+              <span class="test-meta">
+                <span class="test-duration">0.000s</span>
+                <span class="badge badge-skipped">skipped</span>
+              </span>
+            </summary>
+            <div class="test-details">
+              <div class="test-outcome">
+                <p class="test-reason">skipped: excluded by tag filter: slow</p>
+              </div>
+            </div>
+          </details>
+        </div>
+      </div>
+    </div>
+  </details>
 
-  {{if or .CorpusVersion .Target .Generated .Properties}}
   <details class="disclosure-section" open>
     <summary class="disclosure-trigger">
       <span>Provenance</span>
@@ -499,19 +643,20 @@ footer { margin-top: 3rem; padding-top: 1.5rem; }
     </summary>
     <div class="disclosure-content">
       <div class="meta-list">
-        {{if .Target}}<div class="meta-row"><span class="label">Target</span><span class="value"><code>{{.Target}}</code></span></div>{{end}}
-        {{if .CorpusVersion}}<div class="meta-row"><span class="label">Corpus version</span><span class="value"><code>{{.CorpusVersion}}</code></span></div>{{end}}
-        {{if .Generated}}<div class="meta-row"><span class="label">Generated</span><span class="value">{{.Generated}}</span></div>{{end}}
-        <div class="meta-row"><span class="label">Total test time</span><span class="value">{{.TotalTime}}</span></div>
-        {{range .Properties}}<div class="meta-row"><span class="label">{{.Name}}</span><span class="value">{{.Value}}</span></div>{{end}}
+        <div class="meta-row"><span class="label">Target</span><span class="value"><code>Fixture Store v1.2 &lt;edge &amp; &#34;case&#34; &#39;chars&#39; / `tick` = eq&gt;</code></span></div>
+        <div class="meta-row"><span class="label">Corpus version</span><span class="value"><code>1.0.0</code></span></div>
+        <div class="meta-row"><span class="label">Generated</span><span class="value">2026-09-03 12:05:06 UTC</span></div>
+        <div class="meta-row"><span class="label">Total test time</span><span class="value">1m7s</span></div>
+        <div class="meta-row"><span class="label">alpha</span><span class="value">a &amp; value</span></div>
+        <div class="meta-row"><span class="label">commit</span><span class="value">storage-test@1754e86</span></div>
+        <div class="meta-row"><span class="label">zeta</span><span class="value">z / value</span></div>
       </div>
     </div>
   </details>
-  {{end}}
 
   <footer>
     <div class="footer-note">
-      Generated by s3tests{{if .Generated}} at {{.Generated}}{{end}}{{if .CorpusVersion}} &bull; corpus {{.CorpusVersion}}{{end}}
+      Generated by s3tests at 2026-09-03 12:05:06 UTC &bull; corpus 1.0.0
     </div>
   </footer>
 

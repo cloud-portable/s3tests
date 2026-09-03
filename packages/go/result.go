@@ -24,51 +24,53 @@ const (
 
 // VectorResult is the outcome of one vector.
 type VectorResult struct {
-	ID    string
-	Group string
-	Title string
-	Tags  []string
+	ID    string   `json:"id"`
+	Group string   `json:"group"`
+	Title string   `json:"title,omitempty"`
+	Tags  []string `json:"tags,omitempty"`
 	// Source is the URL of the test this vector was converted from, when the
 	// corpus records one — useful in reports for tracing a failure back to
 	// its origin.
-	Source string
+	Source string `json:"source,omitempty"`
 
-	Outcome Outcome
+	Outcome Outcome `json:"outcome"`
 	// Reason explains Blocked ("prerequisite $bucket b1: ...") and, for
 	// consumer-synthesized results, Skipped outcomes.
-	Reason string
+	Reason string `json:"reason,omitempty"`
 	// RunnerError is set when a Fail is a runner or vector-definition error
 	// (unsupported operation, unresolvable placeholder) rather than a
 	// compatibility failure of the server under test.
-	RunnerError string
+	RunnerError string `json:"runnerError,omitempty"`
 
 	// Steps holds results for executed steps only (execution stops at the
 	// first failing step).
-	Steps []StepResult
+	Steps []StepResult `json:"steps,omitempty"`
 	// Warnings records non-fatal problems, e.g. teardown leftovers.
-	Warnings []string
-	Duration time.Duration
+	Warnings []string `json:"warnings,omitempty"`
+	// Duration JSON-encodes as integer nanoseconds (Go's native
+	// time.Duration representation) — the cross-implementation contract.
+	Duration time.Duration `json:"duration"`
 }
 
 // StepResult is the observed outcome of one executed step.
 type StepResult struct {
-	Index     int    // 0-based position in the vector's steps
-	Kind      string // "operation" or "http"
-	Name      string // operation name, or "METHOD /path" for $http steps
-	Presigned bool
-	Identity  string // "main", "anonymous", "invalid" or a credential handle
+	Index     int    `json:"index"` // 0-based position in the vector's steps
+	Kind      string `json:"kind"`  // "operation" or "http"
+	Name      string `json:"name"`  // operation name, or "METHOD /path" for $http steps
+	Presigned bool   `json:"presigned,omitempty"`
+	Identity  string `json:"identity"` // "main", "anonymous", "invalid" or a credential handle
 
-	Status   int // raw HTTP status observed (0 if the request never completed)
-	Passed   bool
-	Failures []CheckFailure    // expectation mismatches
-	Err      string            // transport/dispatch/runner error, if any
-	Captured map[string]string // values captured for later steps
-	Duration time.Duration
+	Status   int               `json:"status"` // raw HTTP status observed (0 if the request never completed)
+	Passed   bool              `json:"passed"`
+	Failures []CheckFailure    `json:"failures,omitempty"` // expectation mismatches
+	Err      string            `json:"err,omitempty"`      // transport/dispatch/runner error, if any
+	Captured map[string]string `json:"captured,omitempty"` // values captured for later steps
+	Duration time.Duration     `json:"duration"`
 }
 
 // CheckFailure is one expectation mismatch, expressed as expected vs actual.
 type CheckFailure struct {
-	Field    string // e.g. "status", "error", "response.ETag", "headers.content-range", "body"
-	Expected string
-	Actual   string
+	Field    string `json:"field"` // e.g. "status", "error", "response.ETag", "headers.content-range", "body"
+	Expected string `json:"expected"`
+	Actual   string `json:"actual"`
 }

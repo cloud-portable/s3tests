@@ -3,24 +3,17 @@ MINIO_NAME := s3tests-minio
 .PHONY: test integration samples minio-start minio-stop
 
 test:
-	node ../../scripts/sync-report-template.js --check
-	go vet ./...
-	go test ./...
-
-# Regenerate the shared cross-implementation report golden (Go is canonical).
-golden:
-	node ../../scripts/sync-report-template.js
-	S3TESTS_UPDATE_GOLDEN=1 go test ./report/html -run TestGolden -count=1
+	npm test
 
 # Run the integration suite against a disposable MinIO container.
 integration: minio-start
-	S3TESTS_ENDPOINT=http://127.0.0.1:9000 go test -tags integration -run TestIntegration -v -count=1 . ; \
+	S3TESTS_ENDPOINT=http://127.0.0.1:9000 node --test test/integration.test.js ; \
 	status=$$? ; $(MAKE) minio-stop ; exit $$status
 
 # Regenerate the committed sample reports in examples/htmlreport/.
 samples: minio-start
-	go run ./examples/htmlreport -target "MinIO (local docker)" -o examples/htmlreport/report-full.html && \
-	go run ./examples/htmlreport -target "MinIO (local docker)" -tags tier-1 -o examples/htmlreport/report-tier-1.html ; \
+	node examples/htmlreport/main.js --target "MinIO (local docker)" -o examples/htmlreport/report-full.html && \
+	node examples/htmlreport/main.js --target "MinIO (local docker)" --tags tier-1 -o examples/htmlreport/report-tier-1.html ; \
 	status=$$? ; $(MAKE) minio-stop ; exit $$status
 
 minio-start:
