@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -358,11 +359,83 @@ func TestRunSelectedVectors(t *testing.T) {
 			t.Errorf("unexpected vector %s", res.ID)
 		}
 		if res.Outcome == Skipped {
-			t.Error("Run must not synthesize skipped results")
+			t.Error("Run must not skip vectors without a Skip option")
 		}
 	}
 	if total != 1 {
 		t.Errorf("want exactly 1 result, got %d", total)
+	}
+}
+
+// Skip options record matching vectors as Skipped — with the vector's
+// metadata and the option's reason, no steps, and nothing sent to the
+// server — while everything else runs as normal.
+func TestRunSkipOptions(t *testing.T) {
+	srv := httptest.NewServer(newFakeS3())
+	defer srv.Close()
+	r := testRunner(t, srv.URL)
+
+	selected := ApplyFilters(corpusVectors(t), Groups("presigned"))
+	if len(selected) < 3 {
+		t.Fatalf("presigned group too small for this test: %d", len(selected))
+	}
+	skipOne, skipTwo := selected[0], selected[1]
+	perVector := map[string]string{skipTwo.ID: "tracked in issue #42"}
+
+	got := map[string]VectorResult{}
+	var order []string
+	for res := range r.Run(context.Background(), selected,
+		Skip("known bug", IDs(skipOne.ID)),
+		SkipFunc(func(v *s3vectors.Vector) (string, bool) {
+			reason, ok := perVector[v.ID]
+			return reason, ok
+		}),
+		// A later option never overrides an earlier match.
+		Skip("shadowed", IDs(skipOne.ID)),
+	) {
+		got[res.ID] = res
+		order = append(order, res.ID)
+	}
+	if len(got) != len(selected) {
+		t.Fatalf("want %d results (skipped included), got %d", len(selected), len(got))
+	}
+	// Concurrency 1: skipped vectors hold their place in the stream.
+	for i, v := range selected {
+		if order[i] != v.ID {
+			t.Errorf("result %d: got %s, want %s", i, order[i], v.ID)
+		}
+	}
+
+	for _, tc := range []struct {
+		v      *s3vectors.Vector
+		reason string
+	}{{skipOne, "known bug"}, {skipTwo, "tracked in issue #42"}} {
+		res := got[tc.v.ID]
+		if res.Outcome != Skipped || res.Reason != tc.reason {
+			t.Errorf("%s: got %s %q, want skipped %q", tc.v.ID, res.Outcome, res.Reason, tc.reason)
+		}
+		if res.Group != tc.v.Group || res.Title != tc.v.Title || !slices.Equal(res.Tags, tc.v.Tags) {
+			t.Errorf("%s: skipped result lost vector metadata: %+v", tc.v.ID, res)
+		}
+		if len(res.Steps) != 0 || res.Duration != 0 {
+			t.Errorf("%s: skipped vector must not execute: %d steps, %s", tc.v.ID, len(res.Steps), res.Duration)
+		}
+	}
+	skipped := 0
+	for _, res := range got {
+		if res.Outcome == Skipped {
+			skipped++
+		}
+	}
+	if skipped != 2 {
+		t.Errorf("want exactly 2 skipped, got %d", skipped)
+	}
+
+	// Skip with no filters is a dry run: everything is skipped.
+	for res := range r.Run(context.Background(), selected, Skip("dry run")) {
+		if res.Outcome != Skipped || res.Reason != "dry run" {
+			t.Errorf("%s: got %s %q, want skipped \"dry run\"", res.ID, res.Outcome, res.Reason)
+		}
 	}
 }
 

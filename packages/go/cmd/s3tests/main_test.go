@@ -98,6 +98,38 @@ func TestCLIBlockedExitsZero(t *testing.T) {
 	}
 }
 
+// -skip-ids keeps the vector in the results and reports as skipped without
+// sending anything to the server; a skipped vector never counts as failure.
+func TestCLISkipIDs(t *testing.T) {
+	srv := fail500()
+	defer srv.Close()
+	id := pickVector(t, func(v *s3vectors.Vector) bool { return len(v.Prerequisites) == 0 })
+
+	junitPath := filepath.Join(t.TempDir(), "report.xml")
+	var out, errOut bytes.Buffer
+	code := run([]string{
+		"-endpoint", srv.URL, "-access-key", "AK", "-secret-key", "SK",
+		"-ids", id, "-skip-ids", id, "-r", "junit=" + junitPath,
+	}, &out, &errOut)
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0 (skipped is not failure)\nstdout:\n%s\nstderr:\n%s", code, out.String(), errOut.String())
+	}
+	for _, want := range []string{"skipped " + id, "skipped by -skip-ids", "1 vectors: 0 pass, 0 fail (0 runner errors), 0 blocked, 1 skipped"} {
+		if !strings.Contains(out.String(), want) {
+			t.Errorf("stdout missing %q:\n%s", want, out.String())
+		}
+	}
+	b, err := os.ReadFile(junitPath)
+	if err != nil {
+		t.Fatalf("report not written: %v", err)
+	}
+	for _, want := range []string{id, "skipped: skipped by -skip-ids", `name="skip-ids"`} {
+		if !strings.Contains(string(b), want) {
+			t.Errorf("junit report missing %q:\n%s", want, b)
+		}
+	}
+}
+
 func TestCLIUsageErrors(t *testing.T) {
 	var out, errOut bytes.Buffer
 	if code := run([]string{"-access-key", "AK"}, &out, &errOut); code != 2 {

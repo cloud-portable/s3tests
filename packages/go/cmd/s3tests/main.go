@@ -8,9 +8,14 @@
 //	s3tests -endpoint http://127.0.0.1:9000 -access-key AK -secret-key SK \
 //	  -tags tier-1 -r junit -r html=minio.html
 //
+// Vectors are selected with -groups/-tags/-ids and dropped with the matching
+// -exclude-* flags; the -skip-* flags instead keep matching vectors in the
+// results as "skipped" (with the flag as the reason) without running them,
+// so reports document a skip-list rather than silently omitting it.
+//
 // The exit code is 1 when any vector failed (including runner errors) and 0
-// otherwise; blocked vectors do not affect it (a missing second identity
-// blocks the $credential vectors by design — supply -alt-access-key /
+// otherwise; blocked and skipped vectors do not affect it (a missing second
+// identity blocks the $credential vectors by design — supply -alt-access-key /
 // -alt-secret-key to run them).
 package main
 
@@ -54,7 +59,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	region := fs.String("region", "us-east-1", "region for SigV4 signing")
 	virtualHost := fs.Bool("virtual-host", false, "use virtual-hosted-style addressing (default path-style)")
 	concurrency := fs.Int("concurrency", 1, "vectors executed in parallel")
-	keep := fs.Bool("keep-resources", false, "skip teardown, leaving buckets in place for debugging")
+	keep := fs.Bool("keep-resources", false, "do not tear down resources, leaving buckets in place for debugging")
 
 	altAccessKey := fs.String("alt-access-key", envOr("S3TESTS_ALT_ACCESS_KEY", ""), "second identity access key for $credential vectors (env S3TESTS_ALT_ACCESS_KEY)")
 	altSecretKey := fs.String("alt-secret-key", envOr("S3TESTS_ALT_SECRET_KEY", ""), "second identity secret key (env S3TESTS_ALT_SECRET_KEY)")
@@ -64,9 +69,12 @@ func run(args []string, stdout, stderr io.Writer) int {
 	groups := fs.String("groups", "", "comma-separated feature groups to run (empty = all)")
 	tags := fs.String("tags", "", "comma-separated tags; vectors must carry at least one (e.g. tier-1)")
 	ids := fs.String("ids", "", "comma-separated vector ids to run")
-	excludeGroups := fs.String("exclude-groups", "", "comma-separated feature groups to skip")
-	excludeTags := fs.String("exclude-tags", "", "comma-separated tags to skip")
-	excludeIDs := fs.String("exclude-ids", "", "comma-separated vector ids to skip (skip-list)")
+	excludeGroups := fs.String("exclude-groups", "", "comma-separated feature groups to drop from the run (absent from results)")
+	excludeTags := fs.String("exclude-tags", "", "comma-separated tags to drop from the run (absent from results)")
+	excludeIDs := fs.String("exclude-ids", "", "comma-separated vector ids to drop from the run (absent from results)")
+	skipGroups := fs.String("skip-groups", "", "comma-separated feature groups to skip: not run, but recorded as skipped in results")
+	skipTags := fs.String("skip-tags", "", "comma-separated tags to skip: not run, but recorded as skipped in results")
+	skipIDs := fs.String("skip-ids", "", "comma-separated vector ids to skip: not run, but recorded as skipped in results (skip-list)")
 
 	var reports reportFlags
 	fs.Var(&reports, "report", "write a report, <format>[=<path>] (formats: junit, html; default paths report.xml, report.html); repeatable")
@@ -119,6 +127,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "error: no vectors selected")
 		return 2
 	}
+	runOpts := buildSkips(*skipGroups, *skipTags, *skipIDs, properties)
 
 	// Ctrl-C cancels the run; in-flight vectors still tear their buckets down.
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
@@ -129,7 +138,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	runnerErrs := 0
 	started := time.Now()
 	var results []s3tests.VectorResult
-	for res := range runner.Run(ctx, selected) {
+	for res := range runner.Run(ctx, selected, runOpts...) {
 		results = append(results, res)
 		counts[res.Outcome]++
 		if res.RunnerError != "" {
@@ -170,14 +179,14 @@ func run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stdout, "wrote %s report %s\n", spec.format, spec.path)
 	}
 
-	pass, fail, blocked := counts[s3tests.Pass], counts[s3tests.Fail], counts[s3tests.Blocked]
-	attempted := len(results)
+	pass, fail, blocked, skipped := counts[s3tests.Pass], counts[s3tests.Fail], counts[s3tests.Blocked], counts[s3tests.Skipped]
+	attempted := len(results) - skipped
 	pct := "—"
 	if attempted > 0 {
 		pct = fmt.Sprintf("%.1f%%", 100*float64(pass)/float64(attempted))
 	}
-	fmt.Fprintf(stdout, "\n%d vectors: %d pass, %d fail (%d runner errors), %d blocked — %s pass rate in %.1fs (corpus %s)\n",
-		attempted, pass, fail, runnerErrs, blocked, pct, wall.Seconds(), runner.CorpusVersion())
+	fmt.Fprintf(stdout, "\n%d vectors: %d pass, %d fail (%d runner errors), %d blocked, %d skipped — %s pass rate in %.1fs (corpus %s)\n",
+		len(results), pass, fail, runnerErrs, blocked, skipped, pct, wall.Seconds(), runner.CorpusVersion())
 
 	switch {
 	case fail > 0 || reporterFailed:
@@ -258,12 +267,32 @@ func buildFilters(groups, tags, ids, exGroups, exTags, exIDs string) ([]s3tests.
 	return filters, properties
 }
 
+// buildSkips turns the -skip-* flags into Run options. Unlike the exclude
+// filters, skipped vectors stay in the results (and reports) with the flag
+// that skipped them as the reason; the flag values are also stamped into
+// properties.
+func buildSkips(groups, tags, ids string, properties map[string]string) []s3tests.RunOption {
+	var opts []s3tests.RunOption
+	add := func(name, val string, f func(...string) s3tests.FilterFunc) {
+		if val == "" {
+			return
+		}
+		opts = append(opts, s3tests.Skip("skipped by -"+name, f(strings.Split(val, ",")...)))
+		properties[name] = val
+	}
+	add("skip-groups", groups, s3tests.Groups)
+	add("skip-tags", tags, s3tests.Tags)
+	add("skip-ids", ids, s3tests.IDs)
+	return opts
+}
+
 const (
 	ansiReset  = "\x1b[0m"
 	ansiGreen  = "\x1b[32m"
 	ansiRed    = "\x1b[31m"
 	ansiAmber  = "\x1b[33m"
 	ansiViolet = "\x1b[35m"
+	ansiDim    = "\x1b[2m"
 )
 
 // colorsEnabled reports whether stdout is a terminal and NO_COLOR is unset.
@@ -303,6 +332,9 @@ func progressLine(res s3tests.VectorResult, color bool) string {
 		}
 	case s3tests.Blocked:
 		tint = ansiAmber
+		detail = " — " + res.Reason
+	case s3tests.Skipped:
+		tint = ansiDim
 		detail = " — " + res.Reason
 	}
 	if color && tint != "" {
