@@ -27,5 +27,8 @@ export const excludeGroups = (...names) => (v) => !names.includes(v.group)
 /** Drop vectors carrying any of the given tags. */
 export const excludeTags = (...t) => (v) => !t.some((tag) => (v.tags ?? []).includes(tag))
 
-/** Drop vectors with any of the given ids (the skip-list filter). */
+/**
+ * Drop vectors with any of the given ids. Dropped vectors leave no trace in
+ * results; to keep them visible as skipped, pass skip rules to run().
+ */
 export const excludeIds = (...i) => (v) => !i.includes(v.id)

@@ -26,14 +26,37 @@ s3tests --endpoint http://127.0.0.1:9000 --access-key AK --secret-key SK \
 By default results just stream to the console (one line per vector, colored
 on a TTY); each `--report`/`-r` flag (repeatable) also writes a file report —
 give a bare format for its default path (`junit` → `report.xml`, `html` →
-`report.html`) or `<format>=<path>` to choose one. Select vectors with
-`--groups`/`--tags`/`--ids` and the matching `--exclude-*` flags (stamped
-into report provenance). Supply `--alt-access-key`/`--alt-secret-key` (plus
-`--alt-canonical-id`/`--alt-display-name` for ACL vectors) to run the
-`$credential` vectors — without them those vectors report `blocked`. The exit
-code is 1 when any vector failed; blocked vectors don't affect it. Connection
-flags fall back to `S3TESTS_ENDPOINT`/`S3TESTS_ACCESS_KEY`/
-`S3TESTS_SECRET_KEY` (and `S3TESTS_ALT_*`) environment variables.
+`report.html`) or `<format>=<path>` to choose one. Supply
+`--alt-access-key`/`--alt-secret-key` (plus `--alt-canonical-id`/
+`--alt-display-name` for ACL vectors) to run the `$credential` vectors —
+without them those vectors report `blocked`. The exit code is 1 when any
+vector failed; blocked and skipped vectors don't affect it. Connection flags
+fall back to `S3TESTS_ENDPOINT`/`S3TESTS_ACCESS_KEY`/`S3TESTS_SECRET_KEY`
+(and `S3TESTS_ALT_*`) environment variables.
+
+Select vectors with `--groups`/`--tags`/`--ids`. Two families of flags then
+narrow the run, with different effects on the results:
+
+- `--exclude-groups`/`--exclude-tags`/`--exclude-ids` **drop** matching
+  vectors from the run — they are absent from results and reports.
+- `--skip-groups`/`--skip-tags`/`--skip-ids` **skip** matching vectors — they
+  are not run either, but each appears in results and reports with outcome
+  `skipped` and the flag as its reason, so a skip-list is documented rather
+  than silently dropped and reports stay comparable across runs.
+
+```sh
+# Run tier-1, skipping two vectors with known server bugs; both still show
+# up as "skipped" in the console and in the JUnit report.
+s3tests --endpoint http://127.0.0.1:9000 --access-key AK --secret-key SK \
+  --tags tier-1 --skip-ids multipart-0013,object-crud-0017 -r junit
+
+# Skip a whole feature group the target does not implement.
+s3tests --endpoint http://127.0.0.1:9000 --access-key AK --secret-key SK \
+  --skip-groups acl,cors
+```
+
+All selection, exclude and skip flag values are stamped into report
+provenance.
 
 ### Programmatic
 
@@ -54,13 +77,14 @@ const runner = new Runner({
 const selected = applyFilters(vectors(), // the whole corpus, in manifest order
   groups('object-crud', 'multipart'),
   tags('tier-1'),                        // vector has ≥1 listed tag
-  excludeIds('multipart-0042'),          // skip-list
+  excludeIds('multipart-0013'),          // dropped: leaves no trace in results
   (v) => v.steps.length < 20             // custom
 )
 
 // run() executes exactly the vectors given, streaming one VectorResult per
 // vector as it completes. Breaking out of the loop, or aborting the signal,
 // cancels the rest of the run; in-flight vectors still tear down.
+// (run() also takes skip rules — see "Skipping vectors" below.)
 const counts = { pass: 0, fail: 0, blocked: 0, skipped: 0 }
 const failures = []
 for await (const v of runner.run(selected)) {
@@ -78,6 +102,49 @@ for (const v of failures) {
     console.log(`  ${f.field}: expected ${f.expected}, got ${f.actual}`)
   }
 }
+```
+
+#### Skipping vectors
+
+Filtering with `applyFilters` *drops* vectors: they never reach `run()` and
+leave no trace in the results. When you want a vector recorded but not
+executed — a known server bug, a feature the target doesn't implement —
+pass skip rules in `run()`'s `skip` option instead. Skipped vectors are never
+sent to the server but still yield a `VectorResult` in their normal position,
+carrying the vector's id, group, title and tags, with `outcome === 'skipped'`,
+your reason in `reason`, no steps and zero duration. Every reporter renders
+them, so runs stay comparable and the skip-list is visible in the report.
+
+`skip(reason, ...filters)` builds a rule from a reason plus the same filter
+predicates as `applyFilters` (ANDed, so `skip(reason)` with no filters skips
+everything — a dry run listing the selection). Rules are consulted in order;
+the first one matching a vector supplies its reason.
+
+```js
+import { skip, groups, tags, ids } from '@cloud-portable/s3tests'
+
+for await (const v of runner.run(selected, {
+  skip: [
+    skip('ACLs not implemented by target', groups('acl')),
+    skip('tier-3 multipart too slow here', groups('multipart'), tags('tier-3')),
+    skip('tracked in issue #123', ids('object-crud-0017', 'copy-0004'))
+  ]
+})) {
+  if (v.outcome === 'skipped') console.log(`skipped ${v.id}: ${v.reason}`)
+}
+```
+
+A rule is just a function `(vector) => string | undefined` — a string is the
+reason to skip, `undefined` lets the vector run — so for reasons that vary per
+vector write one by hand, e.g. a skip-list mapping ids to the issue tracking
+each one:
+
+```js
+const known = {
+  'multipart-0013': 'https://example.com/issues/123',
+  'object-crud-0017': 'https://example.com/issues/456'
+}
+for await (const v of runner.run(selected, { skip: [(v) => known[v.id]] })) { ... }
 ```
 
 Test against real credentials for a *disposable* test account/tenant — the
@@ -105,10 +172,11 @@ about.
 ## Outcomes and reporting
 
 Outcome semantics follow the corpus spec: a failed *prerequisite* is
-`blocked` and a violated *expectation* is `fail`. The `skipped` outcome
-exists for consumers that synthesize results for vectors they filtered out
-of the run (keeping reports comparable across differently-filtered runs);
-the runner itself only executes what it is given. `VectorResult` carries the
+`blocked` and a violated *expectation* is `fail`. `skipped` marks a vector
+deliberately not executed: `run()` produces it for vectors matched by a skip
+rule (with the rule's reason), and consumers may also synthesize it for
+vectors they filtered out before the run — either way reports stay comparable
+across differently-selected runs. `VectorResult` carries the
 stable vector id, group, tags and per-step expected-vs-actual detail, and
 `runner.corpusVersion()` reports the corpus snapshot — everything needed to
 emit JUnit XML/CTRF/TAP as recommended in the corpus's
@@ -194,7 +262,8 @@ throw with the failing step's expected-vs-actual detail, and blocked/skipped
 vectors skip their subtest with a `blocked:`/`skipped:` prefixed reason. Note
 `node --test --test-name-pattern` filters which subtests are *reported*, not
 which vectors *execute* — select vectors before the run instead
-(`applyFilters`).
+(`applyFilters`), or pass skip rules to `run()` to keep known-bad vectors
+visible as skipped subtests.
 
 ## Client behavior
 

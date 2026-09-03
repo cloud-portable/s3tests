@@ -3,16 +3,23 @@
 //
 // By default results just stream to the console. Reports are written for
 // each --report (-r) flag, given as <format> (default path: report.xml for
-// junit, report.html for html) or <format>=<path>, repeatable. The exit code
-// is 1 when any vector failed (including runner errors) and 0 otherwise;
-// blocked vectors do not affect it (a missing second identity blocks the
-// $credential vectors by design — supply --alt-access-key/--alt-secret-key
-// to run them).
+// junit, report.html for html) or <format>=<path>, repeatable.
+//
+// Vectors are selected with --groups/--tags/--ids and dropped with the
+// matching --exclude-* flags; the --skip-* flags instead keep matching
+// vectors in the results as "skipped" (with the flag as the reason) without
+// running them, so reports document a skip-list rather than silently
+// omitting it.
+//
+// The exit code is 1 when any vector failed (including runner errors) and 0
+// otherwise; blocked and skipped vectors do not affect it (a missing second
+// identity blocks the $credential vectors by design — supply
+// --alt-access-key/--alt-secret-key to run them).
 
 import { parseArgs } from 'node:util'
 import { createWriteStream } from 'node:fs'
 import { once } from 'node:events'
-import { Runner, vectors, applyFilters, groups, tags, ids, excludeGroups, excludeTags, excludeIds } from '../index.js'
+import { Runner, vectors, applyFilters, groups, tags, ids, excludeGroups, excludeTags, excludeIds, skip } from '../index.js'
 import * as junit from '../report/junit.js'
 import * as html from '../report/html.js'
 
@@ -39,6 +46,9 @@ const OPTIONS = {
   'exclude-groups': { type: 'string' },
   'exclude-tags': { type: 'string' },
   'exclude-ids': { type: 'string' },
+  'skip-groups': { type: 'string' },
+  'skip-tags': { type: 'string' },
+  'skip-ids': { type: 'string' },
   report: { type: 'string', multiple: true, short: 'r' },
   target: { type: 'string' },
   quiet: { type: 'boolean', default: false },
@@ -54,14 +64,16 @@ connection:
   --region <region>         SigV4 region (default us-east-1)
   --virtual-host            virtual-hosted-style addressing (default path-style)
   --concurrency <n>         vectors executed in parallel (default 1)
-  --keep-resources          skip teardown, leaving buckets for debugging
+  --keep-resources          do not tear down resources, leaving buckets for debugging
   --alt-access-key <id>     second identity for $credential vectors (env S3TESTS_ALT_ACCESS_KEY)
   --alt-secret-key <key>    second identity secret key (env S3TESTS_ALT_SECRET_KEY)
   --alt-canonical-id <id>   second identity canonical id (for ACL vectors)
   --alt-display-name <name> second identity display name
 
 selection (comma-separated):
-  --groups, --tags, --ids and --exclude-groups, --exclude-tags, --exclude-ids
+  --groups, --tags, --ids                          vectors to run (empty = all)
+  --exclude-groups, --exclude-tags, --exclude-ids  drop from the run (absent from results)
+  --skip-groups, --skip-tags, --skip-ids           skip: not run, but recorded as skipped in results
 
 reporting:
   -r, --report <format>[=<path>]  write a report (formats: ${Object.keys(REPORTERS).sort().join(', ')};
@@ -139,6 +151,7 @@ export async function run (argv, stdout, stderr) {
     stderr.write('error: no vectors selected\n')
     return 2
   }
+  const skips = buildSkips(values, properties)
 
   // Ctrl-C cancels the run; in-flight vectors still tear their buckets down.
   // A second interrupt hard-exits.
@@ -158,7 +171,7 @@ export async function run (argv, stdout, stderr) {
   const results = []
   const started = Date.now()
   try {
-    for await (const res of runner.run(selected, { signal: ac.signal })) {
+    for await (const res of runner.run(selected, { signal: ac.signal, skip: skips })) {
       results.push(res)
       counts[res.outcome]++
       if (res.runnerError) runnerErrs++
@@ -189,9 +202,9 @@ export async function run (argv, stdout, stderr) {
     }
   }
 
-  const attempted = results.length
+  const attempted = results.length - counts.skipped
   const pct = attempted > 0 ? `${(100 * counts.pass / attempted).toFixed(1)}%` : '—'
-  stdout.write(`\n${attempted} vectors: ${counts.pass} pass, ${counts.fail} fail (${runnerErrs} runner errors), ${counts.blocked} blocked — ${pct} pass rate in ${wallSecs.toFixed(1)}s (corpus ${runner.corpusVersion()})\n`)
+  stdout.write(`\n${results.length} vectors: ${counts.pass} pass, ${counts.fail} fail (${runnerErrs} runner errors), ${counts.blocked} blocked, ${counts.skipped} skipped — ${pct} pass rate in ${wallSecs.toFixed(1)}s (corpus ${runner.corpusVersion()})\n`)
 
   if (counts.fail > 0 || reporterFailed) return 1
   if (interrupted) return 130
@@ -232,7 +245,25 @@ function buildFilters (values) {
   return { filters, properties }
 }
 
-const ANSI = { reset: '\x1b[0m', green: '\x1b[32m', red: '\x1b[31m', amber: '\x1b[33m', violet: '\x1b[35m' }
+// buildSkips turns the --skip-* flags into skip rules for run(). Unlike the
+// exclude filters, skipped vectors stay in the results (and reports) with the
+// flag that skipped them as the reason; the flag values are also stamped into
+// properties.
+function buildSkips (values, properties) {
+  const rules = []
+  const add = (name, ctor) => {
+    const val = values[name]
+    if (!val) return
+    rules.push(skip(`skipped by --${name}`, ctor(...val.split(','))))
+    properties[name] = val
+  }
+  add('skip-groups', groups)
+  add('skip-tags', tags)
+  add('skip-ids', ids)
+  return rules
+}
+
+const ANSI = { reset: '\x1b[0m', green: '\x1b[32m', red: '\x1b[31m', amber: '\x1b[33m', violet: '\x1b[35m', dim: '\x1b[2m' }
 
 function colorsEnabled (stdout) {
   return !process.env.NO_COLOR && stdout.isTTY === true
@@ -262,6 +293,9 @@ function progressLine (res, color) {
     }
   } else if (res.outcome === 'blocked') {
     tint = ANSI.amber
+    detail = ` — ${res.reason}`
+  } else if (res.outcome === 'skipped') {
+    tint = ANSI.dim
     detail = ` — ${res.reason}`
   }
   if (color && tint) outcome = tint + outcome + ANSI.reset

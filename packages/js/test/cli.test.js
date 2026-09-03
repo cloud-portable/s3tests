@@ -87,6 +87,32 @@ test('blocked-only runs exit 0; --quiet suppresses progress', async () => {
   }
 })
 
+// --skip-ids keeps the vector in the results and reports as skipped without
+// sending anything to the server; a skipped vector never counts as failure.
+test('--skip-ids records the vector as skipped and exits 0', async () => {
+  const srv = await fail500()
+  try {
+    const id = pickVector((v) => (v.prerequisites ?? []).length === 0)
+    const junitPath = path.join(mkdtempSync(path.join(tmpdir(), 's3tests-cli-')), 'report.xml')
+    const out = sink()
+    const errOut = sink()
+    const code = await run([
+      '--endpoint', srv.url, '--access-key', 'AK', '--secret-key', 'SK',
+      '--ids', id, '--skip-ids', id, '-r', `junit=${junitPath}`
+    ], out, errOut)
+    assert.equal(code, 0, out.text() + errOut.text())
+    for (const want of ['skipped ' + id, 'skipped by --skip-ids', '1 vectors: 0 pass, 0 fail (0 runner errors), 0 blocked, 1 skipped']) {
+      assert.ok(out.text().includes(want), `stdout missing ${JSON.stringify(want)}:\n${out.text()}`)
+    }
+    const xml = readFileSync(junitPath, 'utf8')
+    for (const want of [id, 'skipped: skipped by --skip-ids', 'name="skip-ids"']) {
+      assert.ok(xml.includes(want), `junit report missing ${JSON.stringify(want)}:\n${xml}`)
+    }
+  } finally {
+    await srv.close()
+  }
+})
+
 test('usage errors exit 2', async () => {
   const errOut = sink()
   assert.equal(await run(['--access-key', 'AK'], sink(), errOut), 2)

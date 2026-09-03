@@ -12,6 +12,29 @@ import { runHttpStep } from './step-http.js'
 const nowNs = () => Number(process.hrtime.bigint())
 
 /**
+ * A result seeded with the vector's identifying metadata and no outcome
+ * detail yet — the shape shared by executed and skipped vectors.
+ * @param {object} vector corpus api vector
+ * @param {string} [outcome]
+ * @param {string} [reason]
+ */
+export function newResult (vector, outcome = 'pass', reason = '') {
+  return {
+    id: vector.id,
+    group: vector.group,
+    title: vector.title ?? '',
+    tags: vector.tags ?? [],
+    source: vector.source ?? '',
+    outcome,
+    reason,
+    runnerError: '',
+    steps: [],
+    warnings: [],
+    duration: 0
+  }
+}
+
+/**
  * Execute one vector; never throws — problems become the result's outcome.
  * @param {object} rt runtime: {cfg, identities, target}
  * @param {object} vector corpus api vector
@@ -32,19 +55,7 @@ export async function runVector (rt, vector, signal) {
     }),
     buckets: [],
     signal,
-    result: {
-      id: vector.id,
-      group: vector.group,
-      title: vector.title ?? '',
-      tags: vector.tags ?? [],
-      source: vector.source ?? '',
-      outcome: 'pass',
-      reason: '',
-      runnerError: '',
-      steps: [],
-      warnings: [],
-      duration: 0
-    }
+    result: newResult(vector)
   }
 
   try {

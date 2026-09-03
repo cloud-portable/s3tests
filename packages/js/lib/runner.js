@@ -5,7 +5,8 @@ import { manifest } from '@cloud-portable/s3vectors'
 import { S3Client } from '@aws-sdk/client-s3'
 import { withDefaults, buildClient, Identities } from './config.js'
 import { defaultProvisioner } from './provision.js'
-import { runVector } from './vector.js'
+import { runVector, newResult } from './vector.js'
+import { skipReason } from './skip.js'
 
 /** A tiny push/pull channel closed when the producers finish. */
 class AsyncQueue {
@@ -60,7 +61,9 @@ export class Runner {
   /**
    * Execute the given vectors, yielding one result per vector in completion
    * order (identical to the given order when concurrency is 1). Selection
-   * happens before run — see vectors() and applyFilters().
+   * happens before run — see vectors() and applyFilters(). Vectors matched
+   * by a rule in `skip` are not executed but still yield a result with
+   * outcome 'skipped' and the rule's reason (see skip()).
    *
    * Breaking out of the loop, or aborting `signal`, stops the run: in-flight
    * vectors are cancelled (their resource teardown still runs on its own
@@ -69,10 +72,10 @@ export class Runner {
    * work has wound down.
    *
    * @param {object[]} vectors corpus api vectors
-   * @param {{signal?: AbortSignal}} [opts]
+   * @param {{signal?: AbortSignal, skip?: Array<(v: object) => string | undefined>}} [opts]
    * @returns {AsyncGenerator<object, void, void>} VectorResult stream
    */
-  async * run (vectors, { signal } = {}) {
+  async * run (vectors, { signal, skip = [] } = {}) {
     const ac = new AbortController()
     const onOuter = () => ac.abort(signal.reason)
     signal?.addEventListener('abort', onOuter, { once: true })
@@ -86,7 +89,10 @@ export class Runner {
         while (true) {
           const i = next++
           if (i >= vectors.length || ac.signal.aborted) return
-          const result = await runVector(this.rt, vectors[i], ac.signal)
+          const reason = skipReason(skip, vectors[i])
+          const result = reason === undefined
+            ? await runVector(this.rt, vectors[i], ac.signal)
+            : newResult(vectors[i], 'skipped', reason)
           if (!ac.signal.aborted) queue.push(result)
         }
       })()

@@ -42,7 +42,7 @@ export interface Config {
   provisionCredential?: (spec: unknown, options?: { signal?: AbortSignal }) => Promise<Credential>
   /** Overrides the default bucket/object provisioning and teardown. */
   provisioner?: Provisioner
-  /** Skip teardown, leaving provisioned resources behind. Default false. */
+  /** Do not tear down, leaving provisioned resources behind. Default false. */
   keepResources?: boolean
   /** Per-request timeout in milliseconds. Default 60000. */
   requestTimeoutMs?: number
@@ -130,11 +130,37 @@ export class Runner {
   corpusVersion (): string
   /**
    * Executes exactly the given vectors, yielding one result per vector as it
-   * completes (concurrency per config). Stops promptly when the signal
-   * aborts or the iterator is broken out of / returned early.
+   * completes (concurrency per config). Vectors matched by a rule in
+   * `options.skip` are not executed but still yield a result with outcome
+   * 'skipped' and the rule's reason. Stops promptly when the signal aborts
+   * or the iterator is broken out of / returned early.
    */
-  run (vectors: Vector[], options?: { signal?: AbortSignal }): AsyncGenerator<VectorResult, void, void>
+  run (vectors: Vector[], options?: RunOptions): AsyncGenerator<VectorResult, void, void>
 }
+
+export interface RunOptions {
+  /** Aborting cancels the run; in-flight vectors still tear down. */
+  signal?: AbortSignal
+  /**
+   * Skip rules, consulted in order for each vector before it runs; the first
+   * rule returning a string skips the vector with that string as its reason.
+   * Build rules with skip(), or write one by hand for per-vector reasons.
+   */
+  skip?: SkipFunc[]
+}
+
+/**
+ * A skip rule: returns the reason to record the vector as skipped (an empty
+ * string counts), or undefined to let it run.
+ */
+export type SkipFunc = (v: Vector) => string | undefined
+
+/**
+ * A rule skipping vectors matched by every given filter (logical AND, as
+ * applyFilters selects) with the given reason. With no filters every vector
+ * is skipped (a dry run listing the selection).
+ */
+export function skip (reason: string, ...filters: FilterFunc[]): SkipFunc
 
 /** Every api-kind vector in the corpus, in manifest order. */
 export function vectors (): Vector[]

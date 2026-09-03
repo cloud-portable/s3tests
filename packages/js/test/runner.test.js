@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { Runner, vectors, applyFilters, groups, tags, ids, excludeGroups, excludeTags, excludeIds } from '../index.js'
+import { Runner, vectors, applyFilters, groups, tags, ids, excludeGroups, excludeTags, excludeIds, skip } from '../index.js'
 import { startFakeS3 } from './helpers/fake-s3.js'
 
 const passVector = () => ({
@@ -169,13 +169,67 @@ test('run yields exactly the given vectors; breaking cancels', async () => {
     const list = [passVector(), { ...passVector(), id: 'test-0003' }, { ...passVector(), id: 'test-0004' }]
     let seen = 0
     for await (const res of runner.run(list)) {
-      assert.notEqual(res.outcome, 'skipped')
+      assert.notEqual(res.outcome, 'skipped', 'run must not skip vectors without a skip rule')
       seen++
       break // must cancel outstanding work and still tear down
     }
     assert.equal(seen, 1)
     // Teardowns completed before the generator returned.
     assert.equal(srv.buckets.size, 0, 'break must not leak buckets')
+  } finally {
+    await srv.close()
+  }
+})
+
+// Skip rules record matching vectors as skipped — with the vector's metadata
+// and the rule's reason, no steps, and nothing sent to the server — while
+// everything else runs as normal.
+test('skip rules record vectors as skipped without running them', async () => {
+  const srv = await startFakeS3()
+  try {
+    const runner = newRunner(srv.url)
+    const list = [
+      passVector(),
+      { ...passVector(), id: 'test-0002', title: 'second' },
+      { ...passVector(), id: 'test-0003' }
+    ]
+    const perVector = { 'test-0002': 'tracked in issue #42' }
+
+    const results = []
+    for await (const res of runner.run(list, {
+      skip: [
+        skip('known bug', ids('test-0001')),
+        (v) => perVector[v.id],
+        skip('shadowed', ids('test-0001')) // a later rule never overrides an earlier match
+      ]
+    })) results.push(res)
+
+    // Concurrency 1: skipped vectors hold their place in the stream.
+    assert.deepEqual(results.map((r) => r.id), ['test-0001', 'test-0002', 'test-0003'])
+
+    const [one, two, three] = results
+    assert.equal(one.outcome, 'skipped')
+    assert.equal(one.reason, 'known bug')
+    assert.equal(two.outcome, 'skipped')
+    assert.equal(two.reason, 'tracked in issue #42')
+    assert.equal(three.outcome, 'pass')
+    assert.equal(three.reason, '')
+    for (const res of [one, two]) {
+      const v = list.find((x) => x.id === res.id)
+      assert.equal(res.group, v.group)
+      assert.equal(res.title, v.title)
+      assert.deepEqual(res.tags, v.tags)
+      assert.equal(res.steps.length, 0, 'skipped vector must not execute steps')
+      assert.equal(res.duration, 0)
+      assert.equal(res.runnerError, '')
+    }
+    // Only the executed vector touched the server.
+    assert.equal(srv.buckets.size, 0)
+
+    // skip() with no filters is a dry run: everything is skipped.
+    const dry = []
+    for await (const res of runner.run(list, { skip: [skip('dry run')] })) dry.push(res)
+    assert.deepEqual(dry.map((r) => [r.outcome, r.reason]), list.map(() => ['skipped', 'dry run']))
   } finally {
     await srv.close()
   }
