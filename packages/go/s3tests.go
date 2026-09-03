@@ -4,8 +4,7 @@
 // against an S3 endpoint — provisioning prerequisites, interpolating
 // placeholders, dispatching operations through aws-sdk-go-v2, sending raw
 // wire-level requests for $http steps, and evaluating expectations — and
-// reports an outcome per vector: pass, fail or blocked (skipped exists for
-// consumers that report vectors they chose not to run).
+// reports an outcome per vector: pass, fail, blocked or skipped.
 //
 // Minimal usage:
 //
@@ -20,8 +19,12 @@
 //	}
 //
 // Run executes exactly the vectors it is given: ApplyFilters composes the
-// built-in area/tag/id filters with any custom FilterFunc, but any reduction
-// of the Vectors() slice works.
+// built-in group/tag/id filters with any custom FilterFunc, but any reduction
+// of the Vectors() slice works. Vectors dropped this way leave no trace in
+// the results; to record vectors as skipped instead — keeping reports
+// comparable across runs — pass Skip / SkipFunc options to Run:
+//
+//	runner.Run(ctx, selected, s3tests.Skip("known bug #123", s3tests.IDs("multipart-0013")))
 //
 // Signing-kind vectors (offline SigV4 algorithm tests) are out of scope and
 // never loaded.
@@ -85,14 +88,20 @@ func (r *Runner) CorpusVersion() string {
 
 // Run executes the given vectors and streams one VectorResult per vector in
 // completion order (identical to the given order when Concurrency is 1).
-// Selection happens before Run — see Vectors and ApplyFilters.
+// Selection happens before Run — see Vectors and ApplyFilters. Vectors
+// matched by a Skip / SkipFunc option are not executed but still yield a
+// result with Outcome Skipped and the option's reason.
 //
 // Breaking out of the loop, or cancelling ctx, stops the run: in-flight
 // vectors are cancelled (their resource teardown still runs) and
 // not-yet-started vectors never run — a stopped stream is therefore
 // incomplete. The iterator does not return until all in-flight work has
 // wound down.
-func (r *Runner) Run(ctx context.Context, vectors []*s3vectors.Vector) iter.Seq[VectorResult] {
+func (r *Runner) Run(ctx context.Context, vectors []*s3vectors.Vector, opts ...RunOption) iter.Seq[VectorResult] {
+	var o runOptions
+	for _, opt := range opts {
+		opt(&o)
+	}
 	return func(yield func(VectorResult) bool) {
 		ctx, cancel := context.WithCancel(ctx)
 		defer cancel()
@@ -109,7 +118,13 @@ func (r *Runner) Run(ctx context.Context, vectors []*s3vectors.Vector) iter.Seq[
 					if ctx.Err() != nil {
 						continue // cancelled before this vector started
 					}
-					res := r.runVector(ctx, vectors[idx])
+					var res VectorResult
+					if reason, skip := o.skipReason(vectors[idx]); skip {
+						res = newResult(vectors[idx])
+						res.Outcome, res.Reason = Skipped, reason
+					} else {
+						res = r.runVector(ctx, vectors[idx])
+					}
 					select {
 					case results <- res:
 					case <-ctx.Done():

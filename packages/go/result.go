@@ -14,11 +14,11 @@ const (
 	// Blocked: a prerequisite could not be established; the vector was not
 	// runnable. Never conflate with Fail.
 	Blocked Outcome = "blocked"
-	// Skipped: excluded from the run by a filter. Selection happens before
-	// Run (see Vectors/ApplyFilters), so the runner itself never produces
-	// this outcome — it exists for consumers that synthesize results for
-	// vectors they chose not to execute, keeping reports comparable across
-	// differently-filtered runs (the reporters render it).
+	// Skipped: deliberately not executed. Run produces it for vectors
+	// matched by a Skip / SkipFunc option (Reason carries the option's
+	// reason); consumers may also synthesize it for vectors they filtered
+	// out before Run, keeping reports comparable across differently-filtered
+	// runs (the reporters render it).
 	Skipped Outcome = "skipped"
 )
 
@@ -34,8 +34,8 @@ type VectorResult struct {
 	Source string `json:"source,omitempty"`
 
 	Outcome Outcome `json:"outcome"`
-	// Reason explains Blocked ("prerequisite $bucket b1: ...") and, for
-	// consumer-synthesized results, Skipped outcomes.
+	// Reason explains Blocked ("prerequisite $bucket b1: ...") and Skipped
+	// (the Skip option's reason) outcomes.
 	Reason string `json:"reason,omitempty"`
 	// RunnerError is set when a Fail is a runner or vector-definition error
 	// (unsupported operation, unresolvable placeholder) rather than a

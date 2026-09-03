@@ -74,7 +74,8 @@ func ExcludeTags(tags ...string) FilterFunc {
 	}
 }
 
-// ExcludeIDs drops vectors with any of the given ids (the skip-list filter).
+// ExcludeIDs drops vectors with any of the given ids. Dropped vectors leave
+// no trace in results; to keep them visible as skipped, pass Skip to Run.
 func ExcludeIDs(ids ...string) FilterFunc {
 	return func(v *s3vectors.Vector) bool { return !slices.Contains(ids, v.ID) }
 }

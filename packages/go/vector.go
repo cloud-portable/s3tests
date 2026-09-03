@@ -26,6 +26,11 @@ type vectorRun struct {
 	result  VectorResult
 }
 
+// newResult seeds a result with the vector's identifying metadata.
+func newResult(v *s3vectors.Vector) VectorResult {
+	return VectorResult{ID: v.ID, Group: v.Group, Title: v.Title, Tags: v.Tags, Source: v.Source}
+}
+
 func (r *Runner) runVector(ctx context.Context, v *s3vectors.Vector) VectorResult {
 	started := time.Now()
 	cache := vdata.New(v.Data)
@@ -39,7 +44,7 @@ func (r *Runner) runVector(ctx context.Context, v *s3vectors.Vector) VectorResul
 			Cap:  map[string]string{},
 			Data: cache.Derived,
 		},
-		result: VectorResult{ID: v.ID, Group: v.Group, Title: v.Title, Tags: v.Tags, Source: v.Source},
+		result: newResult(v),
 	}
 	vr.run(ctx)
 	vr.result.Duration = time.Since(started)
