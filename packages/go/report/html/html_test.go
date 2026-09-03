@@ -17,6 +17,7 @@ func sampleResults() []s3tests.VectorResult {
 			ID: "multipart-0001", Group: "multipart", Title: "two-part upload",
 			Tags: []string{"tier-1", "multipart"}, Outcome: s3tests.Pass,
 			Duration: 1234 * time.Millisecond,
+			Source:   "https://github.com/linux-kdevops/msst-s3/blob/main/tests/test.py#L1",
 		},
 		{
 			ID: "multipart-0007", Group: "multipart", Title: "bad part etag <script>alert(1)</script>",
@@ -34,7 +35,10 @@ func sampleResults() []s3tests.VectorResult {
 		{
 			ID: "lifecycle-config-0010", Group: "lifecycle-config", Outcome: s3tests.Fail,
 			RunnerError: "operation PutBucketLifecycle is not supported",
-			Steps:       []s3tests.StepResult{{Index: 1, Name: "PutBucketLifecycle"}},
+			// The runner records the same message as the step error; the
+			// report must not render it twice.
+			Steps: []s3tests.StepResult{{Index: 1, Name: "PutBucketLifecycle",
+				Err: "operation PutBucketLifecycle is not supported"}},
 		},
 		{
 			ID: "versioning-0003", Group: "versioning", Outcome: s3tests.Blocked,
@@ -70,64 +74,95 @@ func TestPageStructure(t *testing.T) {
 	if !strings.HasPrefix(out, "<!doctype html>") {
 		t.Error("missing doctype")
 	}
-	// Self-contained, zero JS.
-	if strings.Contains(out, "<script") {
-		t.Error("page must contain no JavaScript")
-	}
-	if strings.Contains(out, "http://") || strings.Contains(out, "https://") {
-		t.Error("page must reference no external resources")
+	// Self-contained, zero JS: no scripts and no external resource loads
+	// (vector source anchors are navigation, not resources).
+	for _, banned := range []string{"<script", "<link", "<img", "@import", "url("} {
+		if strings.Contains(out, banned) {
+			t.Errorf("page must not contain %q", banned)
+		}
 	}
 
-	// Summary: 5 attempted (skipped excluded), 2 pass => 40.0%.
+	// Header: 5 attempted (skipped excluded), 2 pass => 40.0%; split badge
+	// segments carry the counts; fail badge jumps to the first failure.
 	for _, want := range []string{
-		"40.0%", ">2/5<", "corpus 1.0.0", "MinIO TEST",
-		"alpha: a", "zeta: z",
+		`<p class="eyebrow">S3 compatibility report</p>`,
+		"<h1>MinIO TEST</h1>",
+		"40.0% pass (2/5)",
+		"corpus 1.0.0",
+		`>1 fail</a>`, `>1 blocked</a>`, `>1 errors</a>`, `>1 skipped</a>`, `>2 pass</a>`,
+		`href="#v-multipart-0007"`,
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("missing %q in output", want)
 		}
 	}
-	// Properties sorted: alpha before zeta.
-	if strings.Index(out, "alpha: a") > strings.Index(out, "zeta: z") {
+	// Properties sorted in the provenance list.
+	if strings.Index(out, "alpha") > strings.Index(out, "zeta") {
 		t.Error("properties not sorted")
 	}
 
-	// Group rows: multipart 1/2 = 50% => medium; lifecycle-config 0/1 => low;
-	// versioning 0/1 attempted => low; object-crud 1/1 => high.
+	// Groups summary table: multipart 1/2 = 50% => medium; lifecycle-config
+	// 0/1 => low; object-crud 1/1 => high. Rows tint and percentages color by
+	// watermark; bars carry the pass fraction; names link to their section.
 	for _, want := range []string{
-		`class="medium"`, `class="low"`, `class="high"`,
-		`href="#group-multipart"`, `id="group-multipart"`,
+		`<tr class="medium">`,
+		`<tr class="low">`,
+		`<tr class="high">`,
+		`class="num pct medium">50.0%<`,
+		`class="num pct high">100.0%<`,
+		`style="width: 50%"`,
+		`style="width: 100%"`,
+		`<td class="group"><a href="#group-multipart">multipart</a></td>`,
+		`class="num zero">0<`,                    // zero problem-counts render dimmed
+		`id="group-multipart" open`,              // failing group starts expanded
+		`id="group-object-crud">`,                // all-pass group starts collapsed
+		`<span class="counts">1/2 passed</span>`, // multipart summary
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("missing %q in output", want)
 		}
 	}
 
-	// Badges: blocked is never styled as fail; runner error is "error".
+	// Vector cards: badges per outcome; failing card opens with the
+	// expected-vs-actual block; blocked is never styled as fail.
 	for _, want := range []string{
-		`<span class="badge pass">pass</span>`,
-		`<span class="badge fail">fail</span>`,
-		`<span class="badge blocked">blocked</span>`,
-		`<span class="badge error">error</span>`,
-		`<span class="badge skipped">skipped</span>`,
+		`class="badge badge-pass">pass<`,
+		`class="badge badge-fail">fail<`,
+		`class="badge badge-blocked">blocked<`,
+		`class="badge badge-error">error<`,
+		`class="badge badge-skipped">skipped<`,
+		"step 3 (CompleteMultipartUpload) failed",
+		"transport hiccup",
+		"status: expected 400, got 200",
 		"runner error: operation PutBucketLifecycle is not supported",
 		"blocked: prerequisite $bucket b1: simulated outage",
 		"skipped: excluded by tag filter: slow",
 		"warning: teardown x: BucketNotEmpty",
+		`href="https://github.com/linux-kdevops/msst-s3/blob/main/tests/test.py#L1"`,
+		`<span class="tag">tier-1</span><span class="tag">multipart</span>`,
+		`class="test-desc"`,    // description block (title + tags)...
+		`class="test-outcome"`, // ...visually separated from the outcome block
+		"test time 1.2s",       // summed vector durations (header badge + provenance)
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("missing %q in output", want)
 		}
 	}
-
-	// Failure detail: summary line + every expected/actual line in <details>.
-	for _, want := range []string{
-		"<details><summary>step 3 (CompleteMultipartUpload): transport hiccup</summary>",
-		"status: expected 400, got 200",
-	} {
-		if !strings.Contains(out, want) {
-			t.Errorf("missing %q in output", want)
-		}
+	if strings.Contains(out, `class="test-item fail" id="v-versioning-0003"`) {
+		t.Error("blocked vector must not be styled as a failure")
+	}
+	// Vector cards all start collapsed (only group sections auto-expand).
+	if strings.Contains(out, "<details open>") {
+		t.Error("vector detail cards must default closed")
+	}
+	// The red summary line must not repeat the mismatch text (it lives only
+	// in the detail block), and a runner error whose detail adds nothing
+	// renders the message once.
+	if strings.Contains(out, "step 3 (CompleteMultipartUpload): transport hiccup") {
+		t.Error("summary line must not duplicate the first mismatch")
+	}
+	if strings.Count(out, "operation PutBucketLifecycle is not supported") != 1 {
+		t.Error("runner error message must render exactly once")
 	}
 }
 
@@ -144,6 +179,50 @@ func TestEscaping(t *testing.T) {
 	}
 }
 
+// Results arrive in completion order (interleaved under concurrency); the
+// report presents groups by name and vectors by id regardless.
+func TestSortedByID(t *testing.T) {
+	shuffled := sampleResults()
+	slices.Reverse(shuffled)
+	out := render(t, shuffled, report.Meta{})
+
+	inOrder := func(a, b string) {
+		t.Helper()
+		ia, ib := strings.Index(out, a), strings.Index(out, b)
+		if ia < 0 || ib < 0 || ia > ib {
+			t.Errorf("%q must precede %q (%d vs %d)", a, b, ia, ib)
+		}
+	}
+	// Groups sorted by name despite reversed arrival.
+	inOrder(`id="group-lifecycle-config"`, `id="group-multipart"`)
+	inOrder(`id="group-multipart"`, `id="group-object-crud"`)
+	inOrder(`id="group-object-crud"`, `id="group-versioning"`)
+	// Vectors within a group sorted by id.
+	inOrder(`id="v-multipart-0001"`, `id="v-multipart-0007"`)
+	inOrder(`id="v-versioning-0003"`, `id="v-versioning-0004"`)
+	// The fail-badge jump targets the first plain fail in presentation order
+	// (runner errors have their own badge and are excluded from the fail count).
+	if !strings.Contains(out, `href="#v-multipart-0007"`) {
+		t.Error("fail badge must target the first fail in sorted order")
+	}
+}
+
+func TestGeneratedAt(t *testing.T) {
+	when := time.Date(2026, 9, 3, 14, 5, 6, 0, time.FixedZone("CEST", 2*3600))
+	out := render(t, sampleResults(), report.Meta{GeneratedAt: when})
+	if !strings.Contains(out, "2026-09-03 12:05:06 UTC") {
+		t.Error("GeneratedAt must render in UTC")
+	}
+	if !strings.Contains(out, ">Generated</span>") {
+		t.Error("Generated provenance row missing")
+	}
+	// Unset => omitted entirely (keeps default output deterministic).
+	out = render(t, sampleResults(), report.Meta{})
+	if strings.Contains(out, "Generated<") || strings.Contains(out, " at 20") {
+		t.Error("zero GeneratedAt must be omitted")
+	}
+}
+
 func TestOmitSkipped(t *testing.T) {
 	out := render(t, sampleResults(), report.Meta{OmitSkipped: true})
 	if strings.Contains(out, "versioning-0004") {
@@ -152,11 +231,16 @@ func TestOmitSkipped(t *testing.T) {
 	if !strings.Contains(out, "versioning-0003") {
 		t.Error("blocked vector must be kept")
 	}
+	if strings.Contains(out, "skipped</a>") {
+		t.Error("skipped badge segment must be absent")
+	}
 }
 
 func TestDeterministic(t *testing.T) {
 	meta := report.Meta{CorpusVersion: "1.0.0", Properties: map[string]string{"b": "2", "a": "1", "c": "3"}}
-	if render(t, sampleResults(), meta) != render(t, sampleResults(), meta) {
+	first := render(t, sampleResults(), meta)
+	second := render(t, sampleResults(), meta)
+	if first != second {
 		t.Error("output must be byte-for-byte deterministic")
 	}
 }

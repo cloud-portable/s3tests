@@ -28,6 +28,10 @@ type VectorResult struct {
 	Group string
 	Title string
 	Tags  []string
+	// Source is the URL of the test this vector was converted from, when the
+	// corpus records one — useful in reports for tracing a failure back to
+	// its origin.
+	Source string
 
 	Outcome Outcome
 	// Reason explains Blocked ("prerequisite $bucket b1: ...") and, for

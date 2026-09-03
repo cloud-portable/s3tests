@@ -3,130 +3,518 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>S3 compatibility report{{if .Target}} — {{.Target}}{{end}}</title>
+<title>S3 compatibility report{{if .Target}}: {{.Target}}{{end}}</title>
 <style>
-body { font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; margin: 0; color: #333; background: #fff; }
-.wrapper { max-width: 60em; margin: 0 auto; padding: 20px 24px 60px; }
-h1 { font-size: 20px; font-weight: 500; margin: 0 0 16px; }
-h2 { font-size: 16px; font-weight: 500; margin: 32px 0 8px; }
-h2 a.top { font-size: 11px; font-weight: normal; margin-left: 8px; }
-a { color: #0074d9; text-decoration: none; }
-a:hover { text-decoration: underline; }
-.quiet { color: #999; }
-.metrics { margin: 0 0 12px; }
-.metric { display: inline-block; margin-right: 28px; vertical-align: top; }
-.metric .big { display: block; font-size: 26px; font-weight: bold; }
-.metric .label { font-size: 12px; color: #999; }
-.metric .fraction { font-size: 12px; color: #666; font-family: Consolas, Menlo, monospace; }
-.provenance { font-size: 12px; color: #999; margin-bottom: 20px; }
-table { border-collapse: collapse; width: 100%; }
-th, td { padding: 5px 10px; font-size: 13px; border-bottom: 1px solid #eee; text-align: left; }
-th { color: #666; font-weight: 500; border-bottom: 2px solid #ddd; }
-td.num, th.num { text-align: right; font-family: Consolas, Menlo, monospace; }
-tr.high { background: #e6f5d0; }
-tr.medium { background: #fff4c2; }
-tr.low { background: #fce1e5; }
-.bar { display: inline-block; width: 100px; height: 10px; background: #fce1e5; vertical-align: middle; }
-.bar .fill { display: block; height: 10px; background: #a5d68a; }
-.badge { display: inline-block; min-width: 52px; text-align: center; padding: 1px 7px; border-radius: 3px; font-size: 11px; color: #fff; }
-.badge.pass { background: #4c8b2b; }
-.badge.fail { background: #c0392b; }
-.badge.blocked { background: #c98a06; }
-.badge.error { background: #7d3c98; }
-.badge.skipped { background: #999; }
-td.dur { color: #999; font-size: 12px; font-family: Consolas, Menlo, monospace; text-align: right; white-space: nowrap; }
-tr.detail td { border-bottom: 1px solid #eee; padding: 2px 10px 8px 84px; }
-details summary { cursor: pointer; font-size: 12px; color: #666; }
-details pre { background: #f8f8f8; border: 1px solid #eee; padding: 8px 10px; font-size: 12px; font-family: Consolas, Menlo, monospace; overflow-x: auto; margin: 6px 0 0; }
-.reason { font-size: 12px; color: #666; }
-.warning { font-size: 12px; color: #c98a06; }
-footer { margin-top: 40px; font-size: 11px; color: #999; border-top: 1px solid #eee; padding-top: 10px; }
+:root {
+  --bg-primary: #090d16;
+  --bg-secondary: #111827;
+  --bg-tertiary: #1f2937;
+  --border-color: #374151;
+  --text-primary: #f3f4f6;
+  --text-secondary: #9ca3af;
+  --code-bg: #050810;
+  --code-text: #e5e7eb;
+
+  --accent-green: #10b981;
+  --accent-green-transparent: rgba(16, 185, 129, 0.12);
+  --accent-red: #ef4444;
+  --accent-red-transparent: rgba(239, 68, 68, 0.12);
+  --accent-amber: #f59e0b;
+  --accent-amber-transparent: rgba(245, 158, 11, 0.12);
+  --accent-violet: #8b5cf6;
+  --accent-violet-transparent: rgba(139, 92, 246, 0.12);
+  --accent-blue: #3b82f6;
+
+  --font-sans: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg-primary: #f9fafb;
+    --bg-secondary: #ffffff;
+    --bg-tertiary: #e5e7eb;
+    --border-color: #d1d5db;
+    --text-primary: #111827;
+    --text-secondary: #4b5563;
+    --code-bg: #f3f4f6;
+    --code-text: #1f2937;
+  }
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  line-height: 1.5;
+  padding: 1.5rem 1rem 3rem 1rem;
+  min-height: 100vh;
+}
+
+.container { max-width: 900px; margin: 0 auto; width: 100%; }
+
+header { margin-bottom: 2rem; }
+
+.header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+}
+
+.eyebrow {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+  margin-bottom: 0.2rem;
+}
+h1 { font-size: 2rem; font-weight: 700; letter-spacing: -0.025em; }
+
+.provider-title {
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  margin-top: 0.4rem;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.inline-badge {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  font-weight: 600;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  text-decoration: none;
+}
+
+/* Connected split badge (overall outcome counts) */
+.split-badge {
+  display: inline-flex;
+  font-size: 0.825rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.split-badge a {
+  padding: 0.4rem 0.75rem;
+  text-decoration: none;
+  user-select: none;
+  transition: filter 0.2s;
+}
+.split-badge a + a { border-left: 1px solid var(--border-color); }
+.split-badge a:hover { filter: brightness(1.25); }
+.split-badge .green { background-color: var(--accent-green-transparent); color: var(--accent-green); }
+.split-badge .red { background-color: var(--accent-red-transparent); color: var(--accent-red); }
+.split-badge .amber { background-color: var(--accent-amber-transparent); color: var(--accent-amber); }
+.split-badge .violet { background-color: var(--accent-violet-transparent); color: var(--accent-violet); }
+.split-badge .grey { color: var(--text-secondary); }
+
+/* Group summary table (above the fold) */
+.key-info-section {
+  margin-bottom: 2rem;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  overflow-x: auto;
+}
+
+table.groups {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.875rem;
+}
+
+table.groups th, table.groups td {
+  padding: 0.6rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border-color);
+  white-space: nowrap;
+}
+
+table.groups th {
+  font-size: 0.725rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+}
+
+table.groups tbody tr:last-child td { border-bottom: none; }
+table.groups tbody tr { transition: background-color 0.2s; }
+table.groups tbody tr:hover { background-color: var(--bg-tertiary); }
+
+table.groups td.group a {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--text-primary);
+  text-decoration: none;
+}
+table.groups td.group a:hover { text-decoration: underline; }
+
+table.groups th.num, table.groups td.num {
+  text-align: right;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+table.groups td.num.zero { color: var(--text-secondary); opacity: 0.5; }
+
+td.pct.high { color: var(--accent-green); font-weight: 600; }
+td.pct.medium { color: var(--accent-amber); font-weight: 600; }
+td.pct.low { color: var(--accent-red); font-weight: 600; }
+
+tr.high { background-color: rgba(16, 185, 129, 0.05); }
+tr.medium { background-color: rgba(245, 158, 11, 0.05); }
+tr.low { background-color: rgba(239, 68, 68, 0.05); }
+
+.bar {
+  display: inline-block;
+  width: 110px;
+  height: 8px;
+  border-radius: 4px;
+  background-color: var(--accent-red-transparent);
+  overflow: hidden;
+  vertical-align: middle;
+}
+.bar .fill {
+  display: block;
+  height: 100%;
+  background-color: var(--accent-green);
+  box-shadow: 0 0 8px var(--accent-green);
+}
+
+/* Staged disclosure cards (one per group + provenance) */
+.disclosure-section {
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  margin-bottom: 1.5rem;
+  overflow: hidden;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  scroll-margin-top: 1.5rem;
+}
+
+.disclosure-trigger {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.25rem 1.5rem;
+  cursor: pointer;
+  user-select: none;
+  background-color: var(--bg-secondary);
+  font-weight: 600;
+  font-size: 1.05rem;
+  transition: background-color 0.2s;
+}
+
+.disclosure-trigger:hover { background-color: var(--bg-tertiary); }
+.disclosure-trigger::-webkit-details-marker { display: none; }
+.disclosure-trigger .counts { font-size: 0.85rem; font-weight: 500; color: var(--text-secondary); margin-left: 0.5rem; }
+
+.disclosure-icon { font-size: 1.25rem; transition: transform 0.2s; color: var(--text-secondary); }
+details[open] > .disclosure-trigger .disclosure-icon { transform: rotate(90deg); }
+
+.disclosure-content { padding: 1.5rem; border-top: 1px solid var(--border-color); }
+
+/* Vector result cards */
+.test-list { display: flex; flex-direction: column; gap: 0.75rem; }
+
+.test-item {
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  overflow: hidden;
+  scroll-margin-top: 2rem;
+}
+
+.test-item.fail { border-color: var(--accent-red); }
+.test-item.error { border-color: var(--accent-violet); }
+
+.test-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background-color: var(--bg-tertiary);
+  cursor: pointer;
+  font-size: 0.9rem;
+  user-select: none;
+}
+.test-header::-webkit-details-marker { display: none; }
+
+.test-name { font-family: var(--font-mono); font-weight: 600; word-break: break-all; }
+.test-item.fail .test-name { color: var(--accent-red); }
+.test-item.fail .test-header { background-color: rgba(239, 68, 68, 0.05); }
+
+.test-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.test-duration { font-family: var(--font-mono); margin-right: 0.5rem; }
+
+.badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  font-family: var(--font-sans);
+  border: 1px solid;
+}
+.badge-pass { background-color: var(--accent-green-transparent); color: var(--accent-green); border-color: var(--accent-green); }
+.badge-fail { background-color: var(--accent-red-transparent); color: var(--accent-red); border-color: var(--accent-red); }
+.badge-blocked { background-color: var(--accent-amber-transparent); color: var(--accent-amber); border-color: var(--accent-amber); }
+.badge-error { background-color: var(--accent-violet-transparent); color: var(--accent-violet); border-color: var(--accent-violet); }
+.badge-skipped { color: var(--text-secondary); border-color: var(--border-color); }
+
+.test-details {
+  padding: 1rem;
+  border-top: 1px solid var(--border-color);
+  background-color: rgba(0, 0, 0, 0.2);
+}
+@media (prefers-color-scheme: light) {
+  .test-details { background-color: rgba(0, 0, 0, 0.03); }
+}
+
+.test-title { font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 0.5rem; }
+.test-desc > :last-child { margin-bottom: 0; }
+/* A hairline separates the vector's description from its outcome detail,
+   only when both are present (adjacent-sibling selector). */
+.test-desc + .test-outcome {
+  border-top: 1px solid var(--border-color);
+  margin-top: 0.85rem;
+  padding-top: 0.85rem;
+}
+.test-tags { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.5rem; }
+.tag {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 600;
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  padding: 0.05rem 0.4rem;
+  border-radius: 4px;
+}
+.test-error-msg { color: var(--accent-red); font-weight: 600; margin-bottom: 0.5rem; font-size: 0.9rem; }
+.test-item.error .test-error-msg { color: var(--accent-violet); }
+.test-reason { font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 0.5rem; }
+.test-warning { font-size: 0.85rem; color: var(--accent-amber); margin-top: 0.5rem; }
+
+.code-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  margin-bottom: 0.35rem;
+}
+
+.test-stack {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  background-color: var(--code-bg);
+  padding: 1rem;
+  border-radius: 6px;
+  overflow-x: auto;
+  white-space: pre;
+  color: var(--code-text);
+  border: 1px solid var(--border-color);
+}
+
+.external-run-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  color: var(--accent-blue);
+  text-decoration: none;
+  font-weight: 500;
+  margin-top: 0.75rem;
+}
+.external-run-link:hover { text-decoration: underline; }
+
+/* Provenance */
+.meta-list { display: flex; flex-direction: column; gap: 1rem; }
+
+.meta-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 0.5rem;
+  font-size: 0.9rem;
+}
+.meta-row:last-child { border-bottom: none; }
+.meta-row .label { color: var(--text-secondary); font-weight: 500; }
+.meta-row .value { font-weight: 600; text-align: right; overflow-wrap: anywhere; }
+.meta-row code {
+  font-family: var(--font-mono);
+  background-color: var(--bg-tertiary);
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+}
+
+footer { margin-top: 3rem; padding-top: 1.5rem; }
+.footer-note { text-align: center; font-size: 0.75rem; color: var(--text-secondary); }
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+  .op-card:hover { transform: none; }
+}
+
+@media (max-width: 600px) {
+  .header-top { flex-direction: column; align-items: flex-start; }
+  .disclosure-trigger { padding: 1rem; }
+  .disclosure-content { padding: 1rem; }
+  .ops-grid { grid-template-columns: repeat(2, 1fr); gap: 0.5rem; }
+  .op-card { padding: 0.6rem 0.75rem; }
+  .op-name { font-size: 0.75rem; }
+  .status-indicator { font-size: 0.65rem; }
+}
 </style>
 </head>
 <body>
-<div class="wrapper" id="top">
-<h1>S3 compatibility report{{if .Target}} <span class="quiet">— {{.Target}}</span>{{end}}</h1>
+<div class="container">
 
-<div class="metrics">
-  <div class="metric">
-    <span class="big">{{.Rate.Pct}}</span>
-    <span class="label">Pass</span>
-    <span class="fraction">{{.Totals.Pass}}/{{.Totals.Attempted}}</span>
-  </div>
-  <div class="metric">
-    <span class="big">{{.Totals.Fail}}</span>
-    <span class="label">Fail</span>
-  </div>
-  <div class="metric">
-    <span class="big">{{.Totals.Blocked}}</span>
-    <span class="label">Blocked</span>
-  </div>
-  <div class="metric">
-    <span class="big">{{.Totals.Errors}}</span>
-    <span class="label">Runner errors</span>
-  </div>
-  <div class="metric">
-    <span class="big">{{.Totals.Skipped}}</span>
-    <span class="label">Skipped</span>
-  </div>
-</div>
+  <header>
+    <div class="header-top">
+      <div>
+        {{if .Target}}<p class="eyebrow">S3 compatibility report</p>
+        <h1>{{.Target}}</h1>{{else}}<h1>S3 compatibility report</h1>{{end}}
+        <p class="provider-title">
+          {{if .CorpusVersion}}<span class="inline-badge">corpus {{.CorpusVersion}}</span>{{end}}
+          <span class="inline-badge">{{.Totals.PassPct}} pass ({{.Totals.Pass}}/{{.Totals.Attempted}})</span>
+          <span class="inline-badge">test time {{.TotalTime}}</span>
+          {{- range .Properties}}
+          <span class="inline-badge">{{.Name}}: {{.Value}}</span>
+          {{- end}}
+        </p>
+      </div>
+      <div class="split-badge">
+        <a class="green" href="#groups" title="View all results">{{.Totals.Pass}} pass</a>
+        {{- if .Totals.Fail}}<a class="red" {{if .FirstFail}}href="#v-{{.FirstFail}}" title="Jump to first failure"{{end}}>{{.Totals.Fail}} fail</a>{{end}}
+        {{- if .Totals.Blocked}}<a class="amber" href="#groups">{{.Totals.Blocked}} blocked</a>{{end}}
+        {{- if .Totals.Errors}}<a class="violet" href="#groups">{{.Totals.Errors}} errors</a>{{end}}
+        {{- if .Totals.Skipped}}<a class="grey" href="#groups">{{.Totals.Skipped}} skipped</a>{{end}}
+      </div>
+    </div>
+  </header>
 
-<div class="provenance">
-  {{if .CorpusVersion}}corpus {{.CorpusVersion}}{{end}}
-  {{- range .Properties}} · {{.Name}}: {{.Value}}{{end}}
-</div>
+  <section class="key-info-section" id="groups">
+    <table class="groups">
+      <thead>
+        <tr>
+          <th>Group</th><th></th><th class="num">Pass %</th><th class="num">Pass</th>
+          <th class="num">Fail</th><th class="num">Blocked</th><th class="num">Errors</th>
+          <th class="num">Skipped</th><th class="num">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+      {{range .Groups}}
+        <tr class="{{.PctClass}}">
+          <td class="group"><a href="#group-{{.Name}}">{{.Name}}</a></td>
+          <td><span class="bar"><span class="fill" style="width: {{.BarWidth}}%"></span></span></td>
+          <td class="num pct {{.PctClass}}">{{.Counts.PassPct}}</td>
+          <td class="num">{{.Counts.Pass}}</td>
+          <td class="num{{if not .Counts.Fail}} zero{{end}}">{{.Counts.Fail}}</td>
+          <td class="num{{if not .Counts.Blocked}} zero{{end}}">{{.Counts.Blocked}}</td>
+          <td class="num{{if not .Counts.Errors}} zero{{end}}">{{.Counts.Errors}}</td>
+          <td class="num{{if not .Counts.Skipped}} zero{{end}}">{{.Counts.Skipped}}</td>
+          <td class="num">{{.Counts.Total}}</td>
+        </tr>
+      {{end}}
+      </tbody>
+    </table>
+  </section>
 
-<table class="summary">
-  <thead>
-    <tr>
-      <th>Group</th><th></th><th class="num">Pass %</th><th class="num">Pass</th>
-      <th class="num">Fail</th><th class="num">Blocked</th><th class="num">Errors</th>
-      <th class="num">Skipped</th><th class="num">Total</th>
-    </tr>
-  </thead>
-  <tbody>
   {{range .Groups}}
-    <tr class="{{.Rate.Class}}">
-      <td><a href="#group-{{.Name}}">{{.Name}}</a></td>
-      <td><span class="bar"><span class="fill" style="width: {{.Rate.Width}}%"></span></span></td>
-      <td class="num">{{.Rate.Pct}}</td>
-      <td class="num">{{.Counts.Pass}}</td>
-      <td class="num">{{.Counts.Fail}}</td>
-      <td class="num">{{.Counts.Blocked}}</td>
-      <td class="num">{{.Counts.Errors}}</td>
-      <td class="num">{{.Counts.Skipped}}</td>
-      <td class="num">{{.Counts.Total}}</td>
-    </tr>
+  <details class="disclosure-section" id="group-{{.Name}}"{{if .Open}} open{{end}}>
+    <summary class="disclosure-trigger">
+      <span>{{.Name}} <span class="counts">{{.Counts.Pass}}/{{.Counts.Attempted}} passed</span></span>
+      <span class="disclosure-icon">&#9656;</span>
+    </summary>
+    <div class="disclosure-content">
+      <div class="test-list">
+      {{range .Vectors}}
+        <div class="test-item {{.Badge}}" id="v-{{.ID}}">
+          <details>
+            <summary class="test-header">
+              <span class="test-name">{{.ID}}</span>
+              <span class="test-meta">
+                <span class="test-duration">{{.Duration}}</span>
+                <span class="badge badge-{{.Badge}}">{{.Badge}}</span>
+              </span>
+            </summary>
+            <div class="test-details">
+              {{if or .Title .Tags}}<div class="test-desc">
+                {{if .Title}}<p class="test-title">{{.Title}}</p>{{end}}
+                {{if .Tags}}<div class="test-tags">{{range .Tags}}<span class="tag">{{.}}</span>{{end}}</div>{{end}}
+              </div>{{end}}
+              {{if or .Reason .Summary .Detail .Warnings}}<div class="test-outcome">
+                {{if .Reason}}<p class="test-reason">{{.Reason}}</p>{{end}}
+                {{if .Summary}}<div class="test-error-msg">{{.Summary}}</div>{{end}}
+                {{if .Detail}}<div class="code-label">Expected vs actual</div><div class="test-stack">{{.Detail}}</div>{{end}}
+                {{range .Warnings}}<p class="test-warning">warning: {{.}}</p>{{end}}
+              </div>{{end}}
+              {{if .Source}}<a href="{{.Source}}" target="_blank" rel="noopener" class="external-run-link">View vector source &nearr;</a>{{end}}
+            </div>
+          </details>
+        </div>
+      {{end}}
+      </div>
+    </div>
+  </details>
   {{end}}
-  </tbody>
-</table>
 
-{{range .Groups}}
-<h2 id="group-{{.Name}}">{{.Name}} <span class="quiet">{{.Rate.Pct}}</span> <a class="top" href="#top">back to top</a></h2>
-<table>
-  <tbody>
-  {{range .Vectors}}
-    <tr>
-      <td style="width: 64px"><span class="badge {{.Badge}}">{{.Badge}}</span></td>
-      <td style="white-space: nowrap">{{.ID}}</td>
-      <td>{{.Title}}</td>
-      <td class="dur">{{.Duration}}</td>
-    </tr>
-    {{if or .Reason .Summary .Warnings}}
-    <tr class="detail">
-      <td colspan="4">
-        {{if .Reason}}<div class="reason">{{.Reason}}</div>{{end}}
-        {{if .Summary}}{{if .Detail}}<details><summary>{{.Summary}}</summary><pre>{{.Detail}}</pre></details>{{else}}<div class="reason">{{.Summary}}</div>{{end}}{{end}}
-        {{range .Warnings}}<div class="warning">warning: {{.}}</div>{{end}}
-      </td>
-    </tr>
-    {{end}}
+  {{if or .CorpusVersion .Target .Generated .Properties}}
+  <details class="disclosure-section" open>
+    <summary class="disclosure-trigger">
+      <span>Provenance</span>
+      <span class="disclosure-icon">&#9656;</span>
+    </summary>
+    <div class="disclosure-content">
+      <div class="meta-list">
+        {{if .Target}}<div class="meta-row"><span class="label">Target</span><span class="value"><code>{{.Target}}</code></span></div>{{end}}
+        {{if .CorpusVersion}}<div class="meta-row"><span class="label">Corpus version</span><span class="value"><code>{{.CorpusVersion}}</code></span></div>{{end}}
+        {{if .Generated}}<div class="meta-row"><span class="label">Generated</span><span class="value">{{.Generated}}</span></div>{{end}}
+        <div class="meta-row"><span class="label">Total test time</span><span class="value">{{.TotalTime}}</span></div>
+        {{range .Properties}}<div class="meta-row"><span class="label">{{.Name}}</span><span class="value">{{.Value}}</span></div>{{end}}
+      </div>
+    </div>
+  </details>
   {{end}}
-  </tbody>
-</table>
-{{end}}
 
-<footer>generated by s3tests{{if .CorpusVersion}} · corpus {{.CorpusVersion}}{{end}}</footer>
+  <footer>
+    <div class="footer-note">
+      Generated by s3tests{{if .Generated}} at {{.Generated}}{{end}}{{if .CorpusVersion}} &bull; corpus {{.CorpusVersion}}{{end}}
+    </div>
+  </footer>
+
 </div>
 </body>
 </html>

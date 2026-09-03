@@ -60,8 +60,10 @@ hard mechanism is an independently-tested `internal/` package:
   guide. The parent package holds only the shared `report.Meta`; each
   reporter is a subpackage: `report/junit`
   (`junit.Write(w, results, report.Meta{...})`), `report/html`
-  (`html.Write(w, results, meta)` — one self-contained istanbul/c8-style page,
-  inline CSS, zero JavaScript, deterministic output with no timestamps) and
+  (`html.Write(w, results, meta)` — one self-contained dark-first dashboard
+  page ported from olizilla's mock with a coverage-style groups summary
+  table, inline CSS, zero JavaScript; output is deterministic — reporters
+  never call time.Now(), timestamps come only from Meta.GeneratedAt) and
   `report/gotest`
   (`gotest.Run(t, results)` — one `t.Run` subtest per vector: blocked/skipped
   → `t.Skipf` with prefixed reason, RunnerError →
@@ -73,6 +75,9 @@ hard mechanism is an independently-tested `internal/` package:
   `integration_test.go`); `gotest.Run` is deliberately not used by
   `integration_test.go`, which treats target compat failures as data, not
   test failures
+- `examples/htmlreport/` — runnable end-to-end example (flags for
+  endpoint/groups/tags) plus committed sample reports (`report-full.html`,
+  `report-tier-1.html`), regenerated against MinIO via `make samples`
 - `config.go` — `Config` + per-identity S3 client registry (`main`,
   `anonymous`, `invalid`, `$credential` handles)
 - `filter.go` — selection as composable functions: `FilterFunc`,

@@ -39,7 +39,7 @@ func (r *Runner) runVector(ctx context.Context, v *s3vectors.Vector) VectorResul
 			Cap:  map[string]string{},
 			Data: cache.Derived,
 		},
-		result: VectorResult{ID: v.ID, Group: v.Group, Title: v.Title, Tags: v.Tags},
+		result: VectorResult{ID: v.ID, Group: v.Group, Title: v.Title, Tags: v.Tags, Source: v.Source},
 	}
 	vr.run(ctx)
 	vr.result.Duration = time.Since(started)

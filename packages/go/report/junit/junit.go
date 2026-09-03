@@ -45,6 +45,7 @@ func Write(w io.Writer, results iter.Seq[s3tests.VectorResult], meta report.Meta
 			suiteIdx[res.Group] = i
 			root.Suites = append(root.Suites, junitTestsuite{
 				Name:       res.Group,
+				Timestamp:  timestamp(meta),
 				Properties: suiteProperties(meta),
 			})
 		}
@@ -163,6 +164,15 @@ func seconds(d time.Duration) string {
 	return strconv.FormatFloat(d.Seconds(), 'f', 3, 64)
 }
 
+// timestamp renders Meta.GeneratedAt as the JUnit testsuite timestamp
+// (ISO 8601, UTC); empty when unset so output stays deterministic by default.
+func timestamp(meta report.Meta) string {
+	if meta.GeneratedAt.IsZero() {
+		return ""
+	}
+	return meta.GeneratedAt.UTC().Format("2006-01-02T15:04:05")
+}
+
 type junitTestsuites struct {
 	XMLName  xml.Name         `xml:"testsuites"`
 	Name     string           `xml:"name,attr"`
@@ -181,6 +191,7 @@ type junitTestsuite struct {
 	Errors     int              `xml:"errors,attr"`
 	Skipped    int              `xml:"skipped,attr"`
 	Time       string           `xml:"time,attr"`
+	Timestamp  string           `xml:"timestamp,attr,omitempty"`
 	Properties *junitProperties `xml:"properties"`
 	Cases      []junitTestcase  `xml:"testcase"`
 

@@ -128,9 +128,11 @@ err := junit.Write(f, runner.Run(ctx, vectors), report.Meta{
 
 (Or collect first and pass `slices.Values(results)` to format the same run
 multiple ways.) For human inspection, `report/html` renders the same inputs
-as a single self-contained HTML page — istanbul/c8-style summary numbers, a
-per-group table with pass-rate tinting and fraction bars, and per-vector
-expected-vs-actual detail — with inline CSS, no JavaScript, and deterministic
+as a single self-contained HTML page — a dark-first dashboard (light theme
+via `prefers-color-scheme`) with an overall outcome badge, a coverage-style
+summary table of groups (pass-fraction bars, watermarked percentages), and
+per-vector cards that open to expected-vs-actual detail; groups with
+failures start expanded — with inline CSS, no JavaScript, and deterministic
 output (no timestamps):
 
 ```go
@@ -141,8 +143,13 @@ defer f.Close()
 err := htmlreport.Write(f, runner.Run(ctx, vectors), report.Meta{
     CorpusVersion: runner.CorpusVersion(),
     Target:        "MinIO RELEASE.2026-07-01",
+    GeneratedAt:   time.Now(),
 })
 ```
+
+A runnable end-to-end example (endpoint/filter flags, used to produce the
+committed sample reports for the full corpus and for `tier-1`) lives in
+[`examples/htmlreport`](examples/htmlreport).
 
 The JUnit mapping follows the reporting guide: one
 `<testcase>` per vector (`classname` = group), `blocked` →

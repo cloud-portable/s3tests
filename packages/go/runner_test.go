@@ -302,28 +302,28 @@ func TestApplyFilters(t *testing.T) {
 	if len(one) != 1 || one[0].ID != "object-crud-0001" {
 		t.Fatalf("IDs filter: %v", one)
 	}
-	errGroup := ApplyFilters(vectors, Groups("errors"))
-	if len(errGroup) == 0 {
+	group := ApplyFilters(vectors, Groups("presigned"))
+	if len(group) == 0 {
 		t.Fatal("Groups filter selected nothing")
 	}
-	for _, v := range errGroup {
-		if v.Group != "errors" {
+	for _, v := range group {
+		if v.Group != "presigned" {
 			t.Fatalf("Groups filter leaked %s", v.ID)
 		}
 	}
 	// Filters AND together; excludes drop matches.
-	tier1errors := ApplyFilters(vectors, Groups("errors"), Tags("tier-1"))
-	if len(tier1errors) == 0 || len(tier1errors) > len(errGroup) {
-		t.Errorf("AND semantics: %d of %d", len(tier1errors), len(errGroup))
+	tier1 := ApplyFilters(vectors, Groups("presigned"), Tags("tier-1"))
+	if len(tier1) == 0 || len(tier1) > len(group) {
+		t.Errorf("AND semantics: %d of %d", len(tier1), len(group))
 	}
-	skipListed := ApplyFilters(errGroup, ExcludeIDs(errGroup[0].ID))
-	if len(skipListed) != len(errGroup)-1 {
-		t.Errorf("ExcludeIDs: %d, want %d", len(skipListed), len(errGroup)-1)
+	skipListed := ApplyFilters(group, ExcludeIDs(group[0].ID))
+	if len(skipListed) != len(group)-1 {
+		t.Errorf("ExcludeIDs: %d, want %d", len(skipListed), len(group)-1)
 	}
-	if got := ApplyFilters(errGroup, ExcludeGroups("errors")); len(got) != 0 {
+	if got := ApplyFilters(group, ExcludeGroups("presigned")); len(got) != 0 {
 		t.Errorf("ExcludeGroups left %d", len(got))
 	}
-	if got := ApplyFilters(tier1errors, ExcludeTags("tier-1")); len(got) != 0 {
+	if got := ApplyFilters(tier1, ExcludeTags("tier-1")); len(got) != 0 {
 		t.Errorf("ExcludeTags left %d", len(got))
 	}
 	// Custom filters are plain functions.
@@ -334,9 +334,9 @@ func TestApplyFilters(t *testing.T) {
 		}
 	}
 	// Order is preserved.
-	for i := 1; i < len(errGroup); i++ {
-		if errGroup[i-1].ID >= errGroup[i].ID {
-			t.Fatalf("order not preserved: %s >= %s", errGroup[i-1].ID, errGroup[i].ID)
+	for i := 1; i < len(group); i++ {
+		if group[i-1].ID >= group[i].ID {
+			t.Fatalf("order not preserved: %s >= %s", group[i-1].ID, group[i].ID)
 		}
 	}
 }
@@ -374,9 +374,9 @@ func TestRunEarlyBreak(t *testing.T) {
 	r := testRunner(t, srv.URL)
 	r.cfg.Concurrency = 2
 
-	// The errors area is small (8 vectors) but multi-step; break on the
+	// The presigned group is small (7 vectors) but multi-step; break on the
 	// first result while others are in flight.
-	selected := ApplyFilters(corpusVectors(t), Groups("errors"))
+	selected := ApplyFilters(corpusVectors(t), Groups("presigned"))
 	done := make(chan int)
 	go func() {
 		seen := 0

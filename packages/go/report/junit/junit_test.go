@@ -203,6 +203,18 @@ func TestJUnitMapping(t *testing.T) {
 	}
 }
 
+func TestJUnitTimestamp(t *testing.T) {
+	when := time.Date(2026, 9, 3, 14, 5, 6, 0, time.FixedZone("CEST", 2*3600))
+	raw, _ := render(t, sampleResults(), report.Meta{GeneratedAt: when})
+	if !strings.Contains(raw, `timestamp="2026-09-03T12:05:06"`) {
+		t.Error("testsuite timestamp must render GeneratedAt in UTC ISO 8601")
+	}
+	raw, _ = render(t, sampleResults(), report.Meta{})
+	if strings.Contains(raw, "timestamp=") {
+		t.Error("zero GeneratedAt must omit the timestamp attribute")
+	}
+}
+
 func TestJUnitOmitSkipped(t *testing.T) {
 	_, p := render(t, sampleResults(), report.Meta{OmitSkipped: true})
 	if p.Tests != 5 || p.Skipped != 1 { // blocked stays; filter-skip dropped

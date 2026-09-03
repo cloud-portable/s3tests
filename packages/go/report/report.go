@@ -12,8 +12,11 @@
 //	err := junit.Write(f, runner.Run(ctx, filter), report.Meta{
 //		CorpusVersion: runner.CorpusVersion(),
 //		Target:        "MinIO RELEASE.2026-07-01",
+//		GeneratedAt:   time.Now(),
 //	})
 package report
+
+import "time"
 
 // Meta carries run-level metadata stamped into reports so results stay
 // comparable across runs, runners and targets.
@@ -27,6 +30,11 @@ type Meta struct {
 	// Properties are extra run-level properties (emitted in sorted key
 	// order).
 	Properties map[string]string
+	// GeneratedAt, when set, is stamped into reports as the generation time
+	// (rendered in UTC). It is deliberately caller-supplied — reporters never
+	// call time.Now() — so output stays a pure function of its inputs; leave
+	// it zero to omit.
+	GeneratedAt time.Time
 	// OmitSkipped drops Outcome==Skipped vectors from the report. The
 	// default (false) is faithful to the reporting guide and keeps result
 	// sets comparable, but a narrowly filtered run reports mostly skips.
