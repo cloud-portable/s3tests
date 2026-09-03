@@ -13,7 +13,7 @@ The repo mirrors s3vectors' `packages/` convention — one self-contained
 package per language. Only the Go runner exists today:
 
 - `packages/go` — module `github.com/cloud-portable/s3tests/packages/go`,
-  package `s3tests`. A programmatic library (no CLI yet).
+  package `s3tests` (programmatic library) plus the `cmd/s3tests` CLI.
 
 **The corpus is a dependency, never data in this repo.** Vectors come from
 `github.com/cloud-portable/s3vectors/packages/go`; do not vendor or copy
@@ -75,6 +75,13 @@ hard mechanism is an independently-tested `internal/` package:
   `integration_test.go`); `gotest.Run` is deliberately not used by
   `integration_test.go`, which treats target compat failures as data, not
   test failures
+- `cmd/s3tests/` — the CLI: streams console progress by default; repeatable
+  `--report`/`-r <format>[=<path>]` flags write file reports (formats: junit,
+  html — extend the `reporters` map), selection flags mirror the filter
+  funcs, static `-alt-*` flags satisfy $credential vectors, SIGINT cancels
+  gracefully (teardown still runs). Exit code 1 iff any vector failed
+  (blocked does not fail the run — the CLI cannot know if a second identity
+  was intentionally omitted)
 - `examples/htmlreport/` — runnable end-to-end example (flags for
   endpoint/groups/tags) plus committed sample reports (`report-full.html`,
   `report-tier-1.html`), regenerated against MinIO via `make samples`

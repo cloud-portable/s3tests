@@ -12,7 +12,7 @@ package per language.
 
 | Language | Package | Status |
 |---|---|---|
-| Go | [packages/go](packages/go) — `github.com/cloud-portable/s3tests/packages/go` | programmatic runner (library) |
+| Go | [packages/go](packages/go) — `github.com/cloud-portable/s3tests/packages/go` | Library and CLI |
 | JavaScript | — | planned |
 | Python | — | planned |
 | Rust | — | planned |

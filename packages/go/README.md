@@ -1,6 +1,6 @@
 # s3tests — Go runner
 
-A programmatic Go runner for the language-independent
+A runner for the language-independent
 [S3 compatibility test vectors](https://github.com/cloud-portable/s3vectors).
 It executes every `api`-kind vector against an S3 endpoint — provisioning
 prerequisites, interpolating placeholders, dispatching operations through
@@ -8,11 +8,34 @@ prerequisites, interpolating placeholders, dispatching operations through
 presigned URLs — and evaluates the corpus's expectation matchers, reporting
 one of four outcomes per vector: `pass`, `fail`, `blocked` or `skipped`.
 
+## Usage
+
+### CLI
+
+```
+go install github.com/cloud-portable/s3tests/packages/go/cmd/s3tests@latest
+
+s3tests -endpoint http://127.0.0.1:9000 -access-key AK -secret-key SK \
+  -tags tier-1 -r junit -r html=minio.html
+```
+
+By default results just stream to the console (one line per vector, colored
+on a TTY); each `--report`/`-r` flag (repeatable) also writes a file report —
+give a bare format for its default path (`junit` → `report.xml`, `html` →
+`report.html`) or `<format>=<path>` to choose one. Select vectors with `-groups`/`-tags`/`-ids` and the matching
+`-exclude-*` flags (stamped into report provenance). Supply
+`-alt-access-key`/`-alt-secret-key` (plus `-alt-canonical-id`/
+`-alt-display-name` for ACL vectors) to run the `$credential` vectors —
+without them those vectors report `blocked`. The exit code is 1 when any
+vector failed; blocked vectors don't affect it. Connection flags fall back to
+`S3TESTS_ENDPOINT`/`S3TESTS_ACCESS_KEY`/`S3TESTS_SECRET_KEY` (and
+`S3TESTS_ALT_*`) environment variables.
+
+### Programmatic
+
 ```
 go get github.com/cloud-portable/s3tests/packages/go
 ```
-
-## Usage
 
 ```go
 import (
