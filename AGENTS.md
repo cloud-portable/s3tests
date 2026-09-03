@@ -61,9 +61,9 @@ hard mechanism is an independently-tested `internal/` package:
   reporter is a subpackage: `report/junit`
   (`junit.Write(w, results, report.Meta{...})`), `report/html`
   (`html.Write(w, results, meta)` — one self-contained dark-first dashboard
-  page ported from olizilla's mock with a coverage-style groups summary
-  table, inline CSS, zero JavaScript; output is deterministic — reporters
-  never call time.Now(), timestamps come only from Meta.GeneratedAt) and
+  page with a coverage-style groups summary table, inline CSS, zero
+  JavaScript; output is deterministic — reporters never call time.Now(),
+  timestamps come only from Meta.GeneratedAt) and
   `report/gotest`
   (`gotest.Run(t, results)` — one `t.Run` subtest per vector: blocked/skipped
   → `t.Skipf` with prefixed reason, RunnerError →
