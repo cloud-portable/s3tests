@@ -12,7 +12,7 @@ one of four outcomes per vector: `pass`, `fail`, `blocked` or `skipped`.
 
 ### CLI
 
-```
+```sh
 go install github.com/cloud-portable/s3tests/packages/go/cmd/s3tests@latest
 
 s3tests -endpoint http://127.0.0.1:9000 -access-key AK -secret-key SK \
@@ -33,7 +33,7 @@ vector failed; blocked vectors don't affect it. Connection flags fall back to
 
 ### Programmatic
 
-```
+```sh
 go get github.com/cloud-portable/s3tests/packages/go
 ```
 
