@@ -22,10 +22,10 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 
-	s3tests "github.com/cloud-portable/s3tests/packages/go"
-	"github.com/cloud-portable/s3tests/packages/go/report"
-	htmlreport "github.com/cloud-portable/s3tests/packages/go/report/html"
-	"github.com/cloud-portable/s3tests/packages/go/report/junit"
+	s3tests "github.com/alanshaw/s3tests/packages/go"
+	"github.com/alanshaw/s3tests/packages/go/report"
+	htmlreport "github.com/alanshaw/s3tests/packages/go/report/html"
+	"github.com/alanshaw/s3tests/packages/go/report/junit"
 )
 
 func envOr(name, fallback string) string {

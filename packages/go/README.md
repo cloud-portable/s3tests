@@ -13,7 +13,7 @@ one of four outcomes per vector: `pass`, `fail`, `blocked` or `skipped`.
 ### CLI
 
 ```sh
-go install github.com/cloud-portable/s3tests/packages/go/cmd/s3tests@latest
+go install github.com/alanshaw/s3tests/packages/go/cmd/s3tests@latest
 
 s3tests -endpoint http://127.0.0.1:9000 -access-key AK -secret-key SK \
   -tags tier-1 -r junit -r html=minio.html
@@ -57,14 +57,14 @@ provenance.
 ### Programmatic
 
 ```sh
-go get github.com/cloud-portable/s3tests/packages/go
+go get github.com/alanshaw/s3tests/packages/go
 ```
 
 ```go
 import (
     "github.com/aws/aws-sdk-go-v2/credentials"
-    s3tests "github.com/cloud-portable/s3tests/packages/go"
-    s3vectors "github.com/cloud-portable/s3vectors/packages/go"
+    s3tests "github.com/alanshaw/s3tests/packages/go"
+    s3vectors "github.com/alanshaw/s3vectors/packages/go"
 )
 
 runner, err := s3tests.New(s3tests.Config{
@@ -205,8 +205,8 @@ a report file:
 
 ```go
 import (
-    "github.com/cloud-portable/s3tests/packages/go/report"
-    "github.com/cloud-portable/s3tests/packages/go/report/junit"
+    "github.com/alanshaw/s3tests/packages/go/report"
+    "github.com/alanshaw/s3tests/packages/go/report/junit"
 )
 
 f, _ := os.Create("results.xml")
@@ -227,7 +227,7 @@ vector's definition in the corpus repo; groups with failures start expanded — 
 output (no timestamps):
 
 ```go
-import htmlreport "github.com/cloud-portable/s3tests/packages/go/report/html"
+import htmlreport "github.com/alanshaw/s3tests/packages/go/report/html"
 
 f, _ := os.Create("report.html")
 defer f.Close()
@@ -257,7 +257,7 @@ The [`report/gotest`](report/gotest) subpackage reports each vector as a
 `-v` for per-vector detail, and `go test`-based CI comes for free:
 
 ```go
-import "github.com/cloud-portable/s3tests/packages/go/report/gotest"
+import "github.com/alanshaw/s3tests/packages/go/report/gotest"
 
 func TestS3Compat(t *testing.T) {
     runner, err := s3tests.New(cfg)

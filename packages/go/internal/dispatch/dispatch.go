@@ -22,7 +22,7 @@ import (
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 
-	"github.com/cloud-portable/s3tests/packages/go/internal/match"
+	"github.com/alanshaw/s3tests/packages/go/internal/match"
 )
 
 // Result is the observed outcome of one operation call.

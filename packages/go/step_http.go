@@ -6,10 +6,10 @@ import (
 	"sort"
 	"strings"
 
+	s3vectors "github.com/alanshaw/s3vectors/packages/go"
 	"github.com/aws/aws-sdk-go-v2/aws"
-	s3vectors "github.com/cloud-portable/s3vectors/packages/go"
 
-	"github.com/cloud-portable/s3tests/packages/go/internal/rawhttp"
+	"github.com/alanshaw/s3tests/packages/go/internal/rawhttp"
 )
 
 func (vr *vectorRun) runHTTPStep(ctx context.Context, src *s3vectors.HTTPStep, sr *StepResult) {

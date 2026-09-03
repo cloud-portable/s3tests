@@ -10,10 +10,10 @@ import (
 	"strings"
 	"time"
 
-	s3vectors "github.com/cloud-portable/s3vectors/packages/go"
+	s3vectors "github.com/alanshaw/s3vectors/packages/go"
 
-	"github.com/cloud-portable/s3tests/packages/go/internal/interp"
-	"github.com/cloud-portable/s3tests/packages/go/internal/vdata"
+	"github.com/alanshaw/s3tests/packages/go/internal/interp"
+	"github.com/alanshaw/s3tests/packages/go/internal/vdata"
 )
 
 // vectorRun carries the mutable state of one executing vector.

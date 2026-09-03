@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	s3tests "github.com/cloud-portable/s3tests/packages/go"
+	s3tests "github.com/alanshaw/s3tests/packages/go"
 )
 
 // Run reports each vector result as a subtest of t, named by the vector id

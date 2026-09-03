@@ -14,8 +14,8 @@ import (
 	"slices"
 	"testing"
 
-	s3tests "github.com/cloud-portable/s3tests/packages/go"
-	"github.com/cloud-portable/s3tests/packages/go/report"
+	s3tests "github.com/alanshaw/s3tests/packages/go"
+	"github.com/alanshaw/s3tests/packages/go/report"
 )
 
 const sharedDir = "../../../../shared/report"

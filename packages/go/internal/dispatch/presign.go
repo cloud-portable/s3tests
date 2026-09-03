@@ -10,7 +10,7 @@ import (
 	v4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 
-	"github.com/cloud-portable/s3tests/packages/go/internal/match"
+	"github.com/alanshaw/s3tests/packages/go/internal/match"
 )
 
 var presignClientType = reflect.TypeFor[*s3.PresignClient]()

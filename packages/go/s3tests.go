@@ -35,7 +35,7 @@ import (
 	"iter"
 	"sync"
 
-	s3vectors "github.com/cloud-portable/s3vectors/packages/go"
+	s3vectors "github.com/alanshaw/s3vectors/packages/go"
 )
 
 // Vectors returns every api-kind vector in the corpus, in manifest order.

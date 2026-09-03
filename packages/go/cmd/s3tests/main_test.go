@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	s3tests "github.com/cloud-portable/s3tests/packages/go"
-	s3vectors "github.com/cloud-portable/s3vectors/packages/go"
+	s3tests "github.com/alanshaw/s3tests/packages/go"
+	s3vectors "github.com/alanshaw/s3vectors/packages/go"
 )
 
 // fail500 answers every request with a 500 XML error: vectors with

@@ -1,7 +1,7 @@
 package s3tests
 
 import (
-	s3vectors "github.com/cloud-portable/s3vectors/packages/go"
+	s3vectors "github.com/alanshaw/s3vectors/packages/go"
 )
 
 // RunOption adjusts how Run treats the vectors it is given. Options are

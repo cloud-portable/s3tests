@@ -3,8 +3,8 @@ package vdata
 import (
 	"testing"
 
-	s3vectors "github.com/cloud-portable/s3vectors/packages/go"
-	"github.com/cloud-portable/s3vectors/packages/go/datagen"
+	s3vectors "github.com/alanshaw/s3vectors/packages/go"
+	"github.com/alanshaw/s3vectors/packages/go/datagen"
 )
 
 func strp(s string) *string { return &s }

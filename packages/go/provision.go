@@ -8,10 +8,10 @@ import (
 
 	"github.com/aws/smithy-go"
 
+	s3vectors "github.com/alanshaw/s3vectors/packages/go"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	s3types "github.com/aws/aws-sdk-go-v2/service/s3/types"
-	s3vectors "github.com/cloud-portable/s3vectors/packages/go"
 )
 
 // BucketInfo is a provisioned $bucket prerequisite; Name feeds

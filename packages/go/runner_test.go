@@ -16,8 +16,8 @@ import (
 	"testing"
 	"time"
 
+	s3vectors "github.com/alanshaw/s3vectors/packages/go"
 	"github.com/aws/aws-sdk-go-v2/credentials"
-	s3vectors "github.com/cloud-portable/s3vectors/packages/go"
 )
 
 // fakeS3 is a minimal in-memory S3 for exercising runner mechanics: bucket

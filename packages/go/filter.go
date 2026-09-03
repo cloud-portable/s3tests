@@ -3,7 +3,7 @@ package s3tests
 import (
 	"slices"
 
-	s3vectors "github.com/cloud-portable/s3vectors/packages/go"
+	s3vectors "github.com/alanshaw/s3vectors/packages/go"
 )
 
 // FilterFunc reports whether a vector should be selected. Custom selections

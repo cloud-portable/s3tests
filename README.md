@@ -9,7 +9,7 @@ and corpus version needed for cross-runner, cross-target comparison.
 
 | Language | Package | Status |
 |---|---|---|
-| Go | [packages/go](packages/go) — `github.com/cloud-portable/s3tests/packages/go` | Library and CLI |
+| Go | [packages/go](packages/go) — `github.com/alanshaw/s3tests/packages/go` | Library and CLI |
 | JavaScript | [packages/js](packages/js) — `@cloud-portable/s3tests` | Library and CLI |
 | Python | — | planned |
 | Rust | — | planned |

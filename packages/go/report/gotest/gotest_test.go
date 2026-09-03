@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	s3tests "github.com/cloud-portable/s3tests/packages/go"
+	s3tests "github.com/alanshaw/s3tests/packages/go"
 )
 
 // recorder is a fake testingT capturing calls in order.

@@ -20,7 +20,7 @@ This example exists to show the library API; if you just want a report, the
 progress while running):
 
 ```sh
-go install github.com/cloud-portable/s3tests/packages/go/cmd/s3tests@latest
+go install github.com/alanshaw/s3tests/packages/go/cmd/s3tests@latest
 
 # equivalent of report-full.html
 s3tests -endpoint http://127.0.0.1:9000 -access-key minioadmin -secret-key minioadmin \

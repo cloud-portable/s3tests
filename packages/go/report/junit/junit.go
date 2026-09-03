@@ -13,8 +13,8 @@ import (
 	"strings"
 	"time"
 
-	s3tests "github.com/cloud-portable/s3tests/packages/go"
-	"github.com/cloud-portable/s3tests/packages/go/report"
+	s3tests "github.com/alanshaw/s3tests/packages/go"
+	"github.com/alanshaw/s3tests/packages/go/report"
 )
 
 // Write consumes the results and writes a JUnit XML document: one <testcase>

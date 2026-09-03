@@ -12,7 +12,7 @@ reports one of four outcomes per vector: `pass`, `fail`, `blocked`, `skipped`.
 The repo mirrors s3vectors' `packages/` convention — one self-contained
 package per language:
 
-- `packages/go` — module `github.com/cloud-portable/s3tests/packages/go`,
+- `packages/go` — module `github.com/alanshaw/s3tests/packages/go`,
   package `s3tests` (programmatic library) plus the `cmd/s3tests` CLI.
 - `packages/js` — npm package `@cloud-portable/s3tests` (plain ESM, no build
   step, hand-written `.d.ts`), library plus the `s3tests` bin. A feature-parity
@@ -22,24 +22,26 @@ package per language:
   file (see below). `scripts/` holds the sync script.
 
 **The corpus is a dependency, never data in this repo.** Vectors come from
-`github.com/cloud-portable/s3vectors/packages/go`; do not vendor or copy
+`github.com/alanshaw/s3vectors/packages/go`; do not vendor or copy
 vector JSON here. The normative spec (placeholder grammar, matcher semantics,
 generated-data algorithm, outcome semantics) is the s3vectors README — link to
 it, don't restate it.
 
 ## Setup gotcha
 
-The s3vectors corpus packages aren't published yet, so both runners point at
-the sibling checkout, which must exist at `~/Code/alanshaw/s3vectors`:
+The Go runner depends on `github.com/alanshaw/s3vectors/packages/go` by
+pseudo-version (a pinned commit; bump with
+`go get github.com/alanshaw/s3vectors/packages/go@<commit-or-tag>`), so it
+builds standalone. The JS runner still points at the sibling checkout, which
+must exist at `~/Code/alanshaw/s3vectors`: `packages/js/package.json` depends
+on `"@cloud-portable/s3vectors": "file:../../../s3vectors/packages/js"` —
+`npm install` symlinks it, so corpus changes are picked up live, but a fresh
+`npm ci`/`npm install` is needed if the corpus package's own dependencies
+change. Drop the `file:` dependency once the npm package is published.
 
-- `packages/go/go.mod` has a `replace` to `../../../s3vectors/packages/go`.
-- `packages/js/package.json` depends on
-  `"@cloud-portable/s3vectors": "file:../../../s3vectors/packages/js"` —
-  `npm install` symlinks it, so corpus changes are picked up live, but a fresh
-  `npm ci`/`npm install` is needed if the corpus package's own dependencies
-  change.
-
-Drop both once the s3vectors packages are public.
+Module paths are **temporarily** `github.com/alanshaw/s3*` (the eventual
+home is the `cloud-portable` org); bare repo hyperlinks and the
+`@cloud-portable` npm scope already use the final names.
 
 ## Commands
 
