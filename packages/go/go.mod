@@ -2,17 +2,13 @@ module github.com/cloud-portable/s3tests/packages/go
 
 go 1.24
 
-// The s3vectors Go module is not published yet; resolve it from the sibling
-// checkout. Drop this once github.com/cloud-portable/s3vectors is public.
-replace github.com/cloud-portable/s3vectors/packages/go => ../../../s3vectors/packages/go
-
 require (
 	github.com/aws/aws-sdk-go-v2 v1.43.6
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.36
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.107.2
 	github.com/aws/smithy-go v1.27.8
 	github.com/cbroglie/mustache v1.4.2
-	github.com/cloud-portable/s3vectors/packages/go v1.0.0
+	github.com/cloud-portable/s3vectors/packages/go v1.0.1-0.20260904130847-c0f546795ba3
 )
 
 require (
