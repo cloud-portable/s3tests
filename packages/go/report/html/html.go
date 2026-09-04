@@ -211,6 +211,19 @@ func (c *counts) barWidth() string {
 	return fmt.Sprintf("%d", (100*c.Pass+attempted/2)/attempted)
 }
 
+// definitionBase is the raw-file location of the corpus vector files; a
+// text-fragment URL on it opens the file scrolled to the vector's "id" line.
+const definitionBase = "https://raw.githubusercontent.com/cloud-portable/s3vectors/main/vectors/"
+
+// definitionURL links a vector card to the vector's definition in the corpus
+// repository. Group and id are plain concatenated, not percent-encoded: the
+// corpus schema restricts both to [a-z0-9-], and avoiding an encoder keeps
+// the Go and JS reporters byte-identical (their encoders escape different
+// characters). The fragment prefix is the pre-encoded form of `"id": "`.
+func definitionURL(group, id string) string {
+	return definitionBase + group + ".json#:~:text=%22id%22%3A%20%22" + id + "%22"
+}
+
 func vectorView(res s3tests.VectorResult) map[string]any {
 	badge := string(res.Outcome)
 	reason, summary, detail := "", "", ""
@@ -247,8 +260,9 @@ func vectorView(res s3tests.VectorResult) map[string]any {
 		"detail": detail, "hasDetail": detail != "",
 		"warnings": warnings,
 		"source":   res.Source, "hasSource": res.Source != "",
-		"hasDesc":    res.Title != "" || len(tags) > 0,
-		"hasOutcome": reason != "" || summary != "" || detail != "" || len(warnings) > 0,
+		"definitionURL": definitionURL(res.Group, res.ID),
+		"hasDesc":       res.Title != "" || len(tags) > 0,
+		"hasOutcome":    reason != "" || summary != "" || detail != "" || len(warnings) > 0,
 	}
 }
 

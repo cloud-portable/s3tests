@@ -61,3 +61,11 @@ test('empty run renders a valid page', async () => {
   assert.ok(out.startsWith('<!doctype html>'))
   assert.ok(out.includes('—'))
 })
+
+test('every card links to its vector definition', async () => {
+  const { meta, results } = loadFixture()
+  const out = await render(results, meta)
+  assert.ok(out.includes('href="https://raw.githubusercontent.com/cloud-portable/s3vectors/main/vectors/multipart.json#:~:text=%22id%22%3A%20%22multipart-0007%22"'))
+  assert.equal(out.split('View vector definition').length - 1, results.length)
+  assert.equal(out.split('View original test').length - 1, 1)
+})

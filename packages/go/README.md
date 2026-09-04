@@ -222,8 +222,8 @@ multiple ways.) For human inspection, `report/html` renders the same inputs
 as a single self-contained HTML page — a dark-first dashboard (light theme
 via `prefers-color-scheme`) with an overall outcome badge, a coverage-style
 summary table of groups (pass-fraction bars, watermarked percentages), and
-per-vector cards that open to expected-vs-actual detail; groups with
-failures start expanded — with inline CSS, no JavaScript, and deterministic
+per-vector cards that open to expected-vs-actual detail and link to the
+vector's definition in the corpus repo; groups with failures start expanded — with inline CSS, no JavaScript, and deterministic
 output (no timestamps):
 
 ```go

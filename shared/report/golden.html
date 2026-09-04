@@ -356,6 +356,8 @@ details[open] > .disclosure-trigger .disclosure-icon { transform: rotate(90deg);
   margin-top: 0.75rem;
 }
 .external-run-link:hover { text-decoration: underline; }
+.test-links { display: flex; flex-wrap: wrap; gap: 0.35rem 1.25rem; margin-top: 0.75rem; }
+.test-links .external-run-link { margin-top: 0; }
 
 /* Provenance */
 .meta-list { display: flex; flex-direction: column; gap: 1rem; }
@@ -502,6 +504,9 @@ footer { margin-top: 3rem; padding-top: 1.5rem; }
               <div class="test-outcome">
                 <div class="test-error-msg">runner error: operation PutBucketLifecycle is not supported</div>
               </div>
+              <div class="test-links">
+                <a href="https://raw.githubusercontent.com/cloud-portable/s3vectors/main/vectors/lifecycle-config.json#:~:text=%22id%22%3A%20%22lifecycle-config-0010%22" target="_blank" rel="noopener" class="external-run-link">View vector definition &nearr;</a>
+              </div>
             </div>
           </details>
         </div>
@@ -529,7 +534,10 @@ footer { margin-top: 3rem; padding-top: 1.5rem; }
                 <p class="test-title">two-part multipart upload with read-back</p>
                 <div class="test-tags"><span class="tag">tier-1</span><span class="tag">multipart</span></div>
               </div>
-              <a href="https://github.com/example/tests/blob/main/tests.json#L7" target="_blank" rel="noopener" class="external-run-link">View vector source &nearr;</a>
+              <div class="test-links">
+                <a href="https://raw.githubusercontent.com/cloud-portable/s3vectors/main/vectors/multipart.json#:~:text=%22id%22%3A%20%22multipart-0001%22" target="_blank" rel="noopener" class="external-run-link">View vector definition &nearr;</a>
+                <a href="https://github.com/example/tests/blob/main/tests.json#L7" target="_blank" rel="noopener" class="external-run-link">View original test &nearr;</a>
+              </div>
             </div>
           </details>
         </div>
@@ -552,6 +560,9 @@ footer { margin-top: 3rem; padding-top: 1.5rem; }
                 <div class="code-label">Expected vs actual</div><div class="test-stack">transport hiccup
 status: expected 400, got 200
 error: expected InvalidPart &amp; &#34;&lt;quoted&gt;&#34; = &#39;tricky&#39; / `tick`, got (no error)</div>
+              </div>
+              <div class="test-links">
+                <a href="https://raw.githubusercontent.com/cloud-portable/s3vectors/main/vectors/multipart.json#:~:text=%22id%22%3A%20%22multipart-0007%22" target="_blank" rel="noopener" class="external-run-link">View vector definition &nearr;</a>
               </div>
             </div>
           </details>
@@ -583,6 +594,9 @@ error: expected InvalidPart &amp; &#34;&lt;quoted&gt;&#34; = &#39;tricky&#39; / 
               <div class="test-outcome">
                 <p class="test-warning">warning: teardown x: BucketNotEmpty &amp; &#34;quoted&#34; &lt;detail&gt;</p>
               </div>
+              <div class="test-links">
+                <a href="https://raw.githubusercontent.com/cloud-portable/s3vectors/main/vectors/object-crud.json#:~:text=%22id%22%3A%20%22object-crud-0169%22" target="_blank" rel="noopener" class="external-run-link">View vector definition &nearr;</a>
+              </div>
             </div>
           </details>
         </div>
@@ -613,6 +627,9 @@ error: expected InvalidPart &amp; &#34;&lt;quoted&gt;&#34; = &#39;tricky&#39; / 
               <div class="test-outcome">
                 <p class="test-reason">blocked: prerequisite $bucket b1: simulated outage</p>
               </div>
+              <div class="test-links">
+                <a href="https://raw.githubusercontent.com/cloud-portable/s3vectors/main/vectors/versioning.json#:~:text=%22id%22%3A%20%22versioning-0003%22" target="_blank" rel="noopener" class="external-run-link">View vector definition &nearr;</a>
+              </div>
             </div>
           </details>
         </div>
@@ -628,6 +645,9 @@ error: expected InvalidPart &amp; &#34;&lt;quoted&gt;&#34; = &#39;tricky&#39; / 
             <div class="test-details">
               <div class="test-outcome">
                 <p class="test-reason">skipped: excluded by tag filter: slow</p>
+              </div>
+              <div class="test-links">
+                <a href="https://raw.githubusercontent.com/cloud-portable/s3vectors/main/vectors/versioning.json#:~:text=%22id%22%3A%20%22versioning-0004%22" target="_blank" rel="noopener" class="external-run-link">View vector definition &nearr;</a>
               </div>
             </div>
           </details>

@@ -109,7 +109,10 @@ hard mechanism is an independently-tested `internal/` package:
   (`html.Write(w, results, meta)` — one self-contained dark-first dashboard
   page with a coverage-style groups summary table, inline CSS, zero
   JavaScript; output is deterministic — reporters never call time.Now(),
-  timestamps come only from Meta.GeneratedAt) and
+  timestamps come only from Meta.GeneratedAt; every vector card links to
+  its definition in the corpus repo via a raw-file text-fragment URL built
+  from group and id by plain concatenation — no percent-encoding, by design,
+  so both languages emit identical bytes) and
   `report/gotest`
   (`gotest.Run(t, results)` — one `t.Run` subtest per vector: blocked/skipped
   → `t.Skipf` with prefixed reason, RunnerError →

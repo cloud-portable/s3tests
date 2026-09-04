@@ -145,6 +145,17 @@ function barWidth (c) {
   return String(Math.floor((100 * c.pass + Math.floor(a / 2)) / a))
 }
 
+// Raw-file location of the corpus vector files; a text-fragment URL on it
+// opens the file scrolled to the vector's "id" line.
+const DEFINITION_BASE = 'https://raw.githubusercontent.com/cloud-portable/s3vectors/main/vectors/'
+
+// Link to the vector's definition in the corpus repository. Group and id are
+// plain concatenated, not percent-encoded: the corpus schema restricts both to
+// [a-z0-9-], and avoiding an encoder keeps the Go and JS reporters
+// byte-identical (their encoders escape different characters). The fragment
+// prefix is the pre-encoded form of `"id": "`.
+const definitionURL = (group, id) => `${DEFINITION_BASE}${group}.json#:~:text=%22id%22%3A%20%22${id}%22`
+
 function vectorView (res) {
   let badge = res.outcome
   let reason = ''
@@ -183,6 +194,7 @@ function vectorView (res) {
     warnings,
     source,
     hasSource: source !== '',
+    definitionURL: definitionURL(res.group, res.id),
     hasDesc: title !== '' || tags.length > 0,
     hasOutcome: reason !== '' || summary !== '' || detail !== '' || warnings.length > 0
   }

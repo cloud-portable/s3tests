@@ -254,3 +254,20 @@ func TestEmptyRun(t *testing.T) {
 		t.Error("empty run shows a dash pass rate")
 	}
 }
+
+func TestDefinitionLinks(t *testing.T) {
+	results := sampleResults()
+	out := render(t, results, report.Meta{})
+	want := `href="https://raw.githubusercontent.com/cloud-portable/s3vectors/main/vectors/multipart.json#:~:text=%22id%22%3A%20%22multipart-0007%22"`
+	if !strings.Contains(out, want) {
+		t.Errorf("definition link missing: %s", want)
+	}
+	// Every card links to its definition, whatever the outcome; only cards
+	// with a Source carry the original-test link.
+	if got := strings.Count(out, "View vector definition"); got != len(results) {
+		t.Errorf("definition links: %d, want %d", got, len(results))
+	}
+	if got := strings.Count(out, "View original test"); got != 1 {
+		t.Errorf("original test links: %d, want 1", got)
+	}
+}
