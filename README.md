@@ -7,6 +7,8 @@ vectors against an S3 endpoint and reports the spec's four outcomes per
 vector — `pass`, `fail`, `blocked`, `skipped` — with the stable vector ids
 and corpus version needed for cross-runner, cross-target comparison.
 
+<img width="6744" height="4692" alt="Image" src="https://github.com/user-attachments/assets/3f629a1c-68dc-46bc-8d4f-32198a69f4ed" />
+
 This repo follows the s3vectors `packages/` convention: one self-contained
 package per language.
 
