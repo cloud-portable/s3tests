@@ -11,7 +11,7 @@ and corpus version needed for cross-runner, cross-target comparison.
 |---|---|---|
 | Go | [packages/go](packages/go) — `github.com/cloud-portable/s3tests/packages/go` | Library and CLI |
 | JavaScript | [packages/js](packages/js) — `@cloud-portable/s3tests` | Library and CLI |
-| Python | — | planned |
+| Python | [packages/python](packages/python) — `cloud-portable-s3tests` | Library and CLI |
 | Rust | — | planned |
 
 See each package's README for usage. The corpus's normative semantics

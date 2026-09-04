@@ -17,7 +17,8 @@ const CHECK = process.argv.includes('--check')
 const SOURCE = path.join(ROOT, 'shared', 'report', 'page.mustache')
 const DESTS = [
   'packages/go/report/html/page.mustache',
-  'packages/js/report/page.mustache'
+  'packages/js/report/page.mustache',
+  'packages/python/src/cloud_portable_s3tests/report/page.mustache'
 ]
 
 const canonical = fs.readFileSync(SOURCE)

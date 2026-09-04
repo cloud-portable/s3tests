@@ -18,6 +18,11 @@ package per language:
   step, hand-written `.d.ts`), library plus the `s3tests` bin. A feature-parity
   port of the Go runner: same config surface, outcomes, reporters and CLI
   flags (`--flag` style instead of Go's `-flag`).
+- `packages/python` — PyPI distribution `cloud-portable-s3tests`, import
+  package `cloud_portable_s3tests` (src layout, hatchling, `py.typed`,
+  synchronous API on boto3), library plus the `s3tests` console script.
+  Feature-parity port of the JS runner: same config surface, outcomes,
+  reporters (`report.junit`, `report.html`, `report.unittest`) and CLI flags.
 - `shared/report` — the HTML report page template and cross-language golden
   file (see below). `scripts/` holds the sync script.
 
@@ -29,17 +34,23 @@ it, don't restate it.
 
 ## Setup gotcha
 
-The s3vectors corpus packages aren't published yet, so both runners point at
-the sibling checkout, which must exist at `~/Code/alanshaw/s3vectors`:
+The s3vectors packages aren't published yet, so all three runners point at the
+sibling checkout, which must exist next to this repo (`../s3vectors`):
 
-- `packages/go/go.mod` has a `replace` to `../../../s3vectors/packages/go`.
+- `packages/go/go.mod` has a `replace` of
+  `github.com/cloud-portable/s3vectors/packages/go` to
+  `../../../s3vectors/packages/go`.
 - `packages/js/package.json` depends on
   `"@cloud-portable/s3vectors": "file:../../../s3vectors/packages/js"` —
   `npm install` symlinks it, so corpus changes are picked up live, but a fresh
   `npm ci`/`npm install` is needed if the corpus package's own dependencies
   change.
+- `packages/python/Makefile`'s `make setup` creates `.venv` and installs the
+  corpus editable from `../../../s3vectors/packages/python` before installing
+  the runner package editable (`pyproject.toml` just names
+  `cloud-portable-s3vectors`, which would otherwise resolve from PyPI).
 
-Drop both once the s3vectors packages are public.
+Drop all three once the s3vectors packages are public.
 
 ## Commands
 
@@ -62,13 +73,26 @@ make integration     # curated groups against a disposable MinIO container (need
 make samples         # regenerate committed examples/htmlreport reports (needs Docker)
 ```
 
+From `packages/python/` (same target names; Node is still needed for the
+template sync check):
+
+```
+make setup           # once; venv + editable corpus + editable package
+make test            # sync check + python -m unittest discover -s tests (incl. corpus smoke + golden)
+make integration     # curated groups against a disposable MinIO container (needs Docker)
+make samples         # regenerate committed examples/htmlreport reports (needs Docker)
+```
+
 The integration tests also run standalone against any endpoint:
 `S3TESTS_ENDPOINT=... S3TESTS_ACCESS_KEY=... S3TESTS_SECRET_KEY=... go test -tags integration -run TestIntegration .`
-(Go) or `S3TESTS_ENDPOINT=... node --test test/integration.test.js` (JS).
+(Go), `S3TESTS_ENDPOINT=... node --test test/integration.test.js` (JS) or
+`S3TESTS_ENDPOINT=... .venv/bin/python -m unittest discover -s tests -p test_integration.py`
+(Python).
 
 For Go changes, always run `gofmt -w`, `go vet ./...` and `go test ./...`
 before considering a change done, and compile the tagged files:
-`go build -tags integration ./...`. For JS changes, `npm test` must pass.
+`go build -tags integration ./...`. For JS changes, `npm test` must pass. For
+Python changes, `make test` from `packages/python/` must pass.
 
 ## Shared HTML template + cross-language golden
 
@@ -78,18 +102,26 @@ Three mechanisms enforce it — keep all three intact:
 - `shared/report/page.mustache` is the canonical template (logic-less
   mustache; view models supply pre-formatted strings and explicit booleans).
   Edit only this copy, then run `node scripts/sync-report-template.js` to copy
-  it into `packages/go/report/html/page.mustache` and
-  `packages/js/report/page.mustache`; both test suites run the script with
-  `--check` and fail on drift. Never hand-edit the package copies.
+  it into `packages/go/report/html/page.mustache`,
+  `packages/js/report/page.mustache` and
+  `packages/python/src/cloud_portable_s3tests/report/page.mustache`; all
+  three test suites run the script with `--check` and fail on drift. Never
+  hand-edit the package copies.
 - `shared/report/fixture.json` + `shared/report/golden.html` pin rendering:
   each package's golden test renders the fixture and byte-compares. Go is
   canonical — after a template or view-model change, regenerate with
-  `make golden` from `packages/go/` and re-run the JS golden test.
+  `make golden` from `packages/go/` and re-run the JS and Python golden tests.
 - View-model formatting (percentages, durations, timestamps) is integer
   arithmetic specified by the Go implementation; the JS reporter overrides
   mustache.js's HTML escaping to match Go's `template.HTMLEscapeString`
-  (exactly `& ' < > "` → `&amp; &#39; &lt; &gt; &#34;`). Any new formatted
-  field needs the same treatment in both packages.
+  (exactly `& ' < > "` → `&amp; &#39; &lt; &gt; &#34;`), and the Python
+  reporter renders with its own minimal mustache (`report/_mustache.py`:
+  escaped variables, `#`/`^` sections, dotted names, `{{.}}`, spec
+  standalone-line stripping) using the same escape set — no Python mustache
+  library allows that override. Any new formatted field needs the same
+  treatment in all three packages; Python's `_timefmt.py` holds the
+  integer-nanosecond formatting helpers (never `round()` or float `%.Nf`,
+  which round half-even).
 
 ## Architecture (packages/go)
 
@@ -187,6 +219,69 @@ both packages (Go first, then mirror):
 - `examples/htmlreport/` — end-to-end example + committed sample reports,
   regenerated via `make samples`
 
+## Architecture (packages/python)
+
+A one-to-one port of the JS structure onto boto3 (change Go first, then
+mirror to JS and Python):
+
+- `src/cloud_portable_s3tests/__init__.py` — public API: `Runner`
+  (generator `run(vectors, *, skip, cancel)` over a thread pool),
+  `Config`/`Credential`, `vectors()`, `apply_filters` + filter constructors,
+  `skip`, the result dataclasses (`VectorResult`/`StepResult`/`CheckFailure`
+  with `to_dict`/`from_dict` for the camelCase JSON contract) and the
+  `Provisioner` protocol. `Runner`/`Config` load lazily (boto3 import).
+- `report/` — `junit.py`, `html.py` and `unittest.py` (`run(tc, results)` —
+  one `tc.subTest` per vector; runner errors raise, fails `tc.fail`,
+  blocked/skipped `tc.skipTest`), plus `_mustache.py` and the synced
+  `page.mustache`; `write(w, results, meta)` takes a binary file object and
+  any iterable (a list or the live `run()` generator) and encodes UTF-8.
+- `_cli.py` + `__main__.py` + the `s3tests` console script — same flags and
+  exit codes as Go/JS; `run(argv, stdout, stderr)` is directly testable.
+  argparse is subclassed so usage errors print `error: …` + the USAGE text
+  and exit 2 (SIGINT: first sets the cancel event, second `os._exit(130)`).
+- Flat private modules mirroring `lib/*.js`: `_config.py` (client tuning +
+  identity registry), `_provision.py`, `_vector.py` (+ `_run.py` for the
+  shared per-vector state), `_step_operation.py`, `_step_http.py`,
+  `_interp.py`, `_vdata.py`, `_match.py`, `_jsonpath.py`, `_dispatch.py`,
+  `_coerce.py`, `_rawhttp.py`, `_presign.py`, `_skip.py`, `_filter.py`,
+  `_result.py`, `_timefmt.py`.
+- Python-specific mechanics worth knowing: boto3 is synchronous, so `run()`
+  is a generator fed by `min(concurrency, len(vectors))` worker threads; the
+  generator's `finally` sets the cancel flag and joins workers, so breaking
+  out cancels outstanding work while in-flight vectors still tear down (on
+  their own 120 s deadline). Cancellation is checked between prerequisites
+  and steps and in the raw-socket read loop — a boto3 call in flight
+  completes or times out. botocore carries the service model at runtime, so
+  `_coerce.build_input` coerces by shape type (timestamp → `parse_time`,
+  streaming `Body` blob → bytes held aside, `$base64`/`$data` for string
+  members → base64, numbers for string members → `str`, `CopySource` dict →
+  `Bucket/Key[?versionId=]` verbatim) and `supported(name)` is
+  `name in service_model.operation_names` — botocore still models
+  `PutBucketLifecycle`, so the smoke test's allow-list is empty and
+  `lifecycle-config-0010` executes. Client tuning:
+  `Config(signature_version='s3v4' | UNSIGNED, retries={'total_max_attempts': 1},
+  request_checksum_calculation='when_required',
+  response_checksum_validation='when_required', s3={'addressing_style':
+  'path' | 'virtual'}, parameter_validation=False, connect/read_timeout,
+  max_pool_connections)`; handlers unregistered per client via
+  `client.meta.events.unregister`: `add_expect_header`,
+  `handle_copy_source_param` (boto3 URL-quotes CopySource), `sse_md5`/
+  `copy_source_sse_md5` (boto3 re-base64s the key), `validate_bucket_name`,
+  `set_list_objects_encoding_type_url` + the `decode_list_object*`
+  after-call decoders; a `before-call` hook strips `Expect` and marks the
+  request context redirected so the region redirector never issues a second
+  request; a `before-parameter-build` hook reproduces the JS SDK's SSE-C
+  behaviour (32-byte base64 keys verbatim, MD5 always recomputed). Raw
+  status/headers come from `ResponseMetadata` (also on `ClientError`);
+  bodyless error codes `404/304/405/412` normalize to
+  `NotFound/NotModified/MethodNotAllowed/PreconditionFailed`, other digit
+  codes to `''`; `StreamingBody` outputs are drained into `res.body` and
+  excluded from the generic value; datetimes render Go-RFC3339Nano at
+  millisecond precision. `$http` uses raw `socket`/`ssl` with a stdlib SigV4
+  mirroring `rawhttp.js` (Content-Length never signed).
+- `examples/htmlreport/` — end-to-end example + committed sample reports,
+  regenerated via `make samples`.
+
 ## Invariants — do not break these
 
 - **`blocked` ≠ `fail`**: a prerequisite that can't be established blocks the
@@ -217,24 +312,27 @@ both packages (Go first, then mirror):
 ## Testing rules
 
 - The **offline corpus smoke test** (`corpus_smoke_test.go` /
-  `test/corpus-smoke.test.js`) dry-runs every api vector with no network:
-  every placeholder must resolve, every operation input must decode, every
-  regex must compile. Each must report **exactly one** known problem:
-  `lifecycle-config-0010` uses `PutBucketLifecycle`, which both
-  aws-sdk-go-v2 and `@aws-sdk/client-s3` removed (allow-listed). If a corpus
-  version bump surfaces new problems, fix the runners — don't grow the
-  allowlist without understanding why.
+  `test/corpus-smoke.test.js` / `tests/test_corpus_smoke.py`) dry-runs every
+  api vector with no network: every placeholder must resolve, every operation
+  input must decode, every regex must compile. Go and JS must report
+  **exactly one** known problem: `lifecycle-config-0010` uses
+  `PutBucketLifecycle`, which both aws-sdk-go-v2 and `@aws-sdk/client-s3`
+  removed (allow-listed); botocore still models it, so the Python allow-list
+  is empty. If a corpus version bump surfaces new problems, fix the runners —
+  don't grow the allowlists without understanding why.
 - The **MinIO integration tests** assert runner *mechanics* (no unexpected
   RunnerErrors, outcome counts sum, no leaked `s3tests-*` buckets) — the
   pass/fail counts are a statement about MinIO, not about the runner. Current
   baseline on the curated groups: Go ~326 pass / ~104 fail / 1 blocked, JS
-  ~323 pass / ~111 fail / 1 blocked (small SDK-behavior deltas are expected;
-  investigate only if the gap grows). Do not gate on pass rate.
+  ~323 pass / ~111 fail / 1 blocked, Python ~326 pass / ~108 fail / 1 blocked
+  (small SDK-behavior deltas are expected; investigate only if the gap
+  grows). Do not gate on pass rate.
   `multipart-0033` is flaky against MinIO (transient connection reset;
   retries are disabled by design).
-- Unit tests are table-driven and use `httptest`/`node:http` or raw
-  socket-listener fakes; no test other than the integration tests may need a
-  real server.
+- Unit tests are table-driven and use `httptest`/`node:http`/
+  `http.server` or raw socket-listener fakes; no test other than the
+  integration tests may need a real server. The Python suite is `unittest`
+  (stdlib; no pytest) and mirrors the JS test titles one-to-one.
 
 ## Known upstream corpus issues (report, don't work around)
 
@@ -250,8 +348,11 @@ both packages (Go first, then mirror):
   cbroglie/mustache and the s3vectors corpus package. JS: Node ≥ 22,
   node-builtins-first, plain ESM with no build step; current deps:
   @aws-sdk/client-s3 (+presigner), the @smithy signing/http packages,
-  @aws-crypto/sha256-js, mustache and the s3vectors corpus package. Justify
-  any new dependency in either package.
+  @aws-crypto/sha256-js, mustache and the s3vectors corpus package. Python:
+  ≥ 3.10, stdlib-first, `unittest`; current deps: boto3 (≥ 1.36 for the
+  checksum config options) and the s3vectors corpus package — no mustache
+  library (hand-written renderer, see above). Justify any new dependency in
+  any package.
 - Future language runners get their own `packages/<lang>` directory with their
   own README and LICENSE.md (dual Apache-2.0/MIT, copied from the repo root),
   mirroring the s3vectors layout — and must render the shared HTML template
