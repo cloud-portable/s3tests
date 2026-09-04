@@ -7,11 +7,6 @@ vectors against an S3 endpoint and reports the spec's four outcomes per
 vector — `pass`, `fail`, `blocked`, `skipped` — with the stable vector ids
 and corpus version needed for cross-runner, cross-target comparison.
 
-<img width="6744" height="4692" alt="Image" src="https://github.com/user-attachments/assets/3f629a1c-68dc-46bc-8d4f-32198a69f4ed" />
-
-This repo follows the s3vectors `packages/` convention: one self-contained
-package per language.
-
 | Language | Package | Status |
 |---|---|---|
 | Go | [packages/go](packages/go) — `github.com/cloud-portable/s3tests/packages/go` | Library and CLI |
@@ -19,12 +14,15 @@ package per language.
 | Python | — | planned |
 | Rust | — | planned |
 
-The HTML report page template is shared across implementations
-([`shared/report/page.mustache`](shared/report/page.mustache)); every runner's
-HTML reporter renders byte-identical output for the same results, pinned by a
-cross-language golden file.
-
 See each package's README for usage. The corpus's normative semantics
 (placeholder grammar, matcher semantics, generated data, outcome semantics)
 live in the [s3vectors README](https://github.com/cloud-portable/s3vectors);
 runners link to it rather than restating it.
+
+## Example Report
+
+<img width="6744" height="4692" alt="Image" src="https://github.com/user-attachments/assets/3f629a1c-68dc-46bc-8d4f-32198a69f4ed" />
+
+## License
+
+Apache-2.0 OR MIT
