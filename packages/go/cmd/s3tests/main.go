@@ -56,6 +56,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	endpoint := fs.String("endpoint", envOr("S3TESTS_ENDPOINT", ""), "S3 endpoint under test, http(s)://host[:port] (env S3TESTS_ENDPOINT)")
 	accessKey := fs.String("access-key", envOr("S3TESTS_ACCESS_KEY", ""), "access key id (env S3TESTS_ACCESS_KEY)")
 	secretKey := fs.String("secret-key", envOr("S3TESTS_SECRET_KEY", ""), "secret access key (env S3TESTS_SECRET_KEY)")
+	sessionToken := fs.String("session-token", envOr("S3TESTS_SESSION_TOKEN", ""), "session token for temporary credentials (env S3TESTS_SESSION_TOKEN)")
 	region := fs.String("region", "us-east-1", "region for SigV4 signing")
 	virtualHost := fs.Bool("virtual-host", false, "use virtual-hosted-style addressing (default path-style)")
 	concurrency := fs.Int("concurrency", 1, "vectors executed in parallel")
@@ -67,13 +68,13 @@ func run(args []string, stdout, stderr io.Writer) int {
 	altDisplayName := fs.String("alt-display-name", envOr("S3TESTS_ALT_DISPLAY_NAME", ""), "second identity display name")
 
 	groups := fs.String("groups", "", "comma-separated feature groups to run (empty = all)")
-	tags := fs.String("tags", "", "comma-separated tags; vectors must carry at least one (e.g. tier-1)")
+	tags := fs.String("tags", "", "comma-separated tags (glob '*' allowed); vectors must carry at least one (e.g. tier-1)")
 	ids := fs.String("ids", "", "comma-separated vector ids to run")
 	excludeGroups := fs.String("exclude-groups", "", "comma-separated feature groups to drop from the run (absent from results)")
-	excludeTags := fs.String("exclude-tags", "", "comma-separated tags to drop from the run (absent from results)")
+	excludeTags := fs.String("exclude-tags", "", "comma-separated tags to drop (glob '*' allowed, e.g. 'quirk:*'; absent from results)")
 	excludeIDs := fs.String("exclude-ids", "", "comma-separated vector ids to drop from the run (absent from results)")
 	skipGroups := fs.String("skip-groups", "", "comma-separated feature groups to skip: not run, but recorded as skipped in results")
-	skipTags := fs.String("skip-tags", "", "comma-separated tags to skip: not run, but recorded as skipped in results")
+	skipTags := fs.String("skip-tags", "", "comma-separated tags to skip (glob '*' allowed, e.g. 'quirk:*'): not run, but recorded as skipped in results")
 	skipIDs := fs.String("skip-ids", "", "comma-separated vector ids to skip: not run, but recorded as skipped in results (skip-list)")
 
 	var reports reportFlags
@@ -94,7 +95,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	cfg := s3tests.Config{
 		Endpoint:         *endpoint,
 		Region:           *region,
-		Credentials:      credentials.NewStaticCredentialsProvider(*accessKey, *secretKey, ""),
+		Credentials:      credentials.NewStaticCredentialsProvider(*accessKey, *secretKey, *sessionToken),
 		VirtualHostStyle: *virtualHost,
 		Concurrency:      *concurrency,
 		KeepResources:    *keep,
@@ -259,10 +260,12 @@ func buildFilters(groups, tags, ids, exGroups, exTags, exIDs string) ([]s3tests.
 		properties[name] = val
 	}
 	add("groups", groups, s3tests.Groups)
-	add("tags", tags, s3tests.Tags)
+	// Tag flags accept '*' globs (e.g. -exclude-tags 'quirk:*'); tags never
+	// contain '*', so a plain tag stays an exact match.
+	add("tags", tags, s3tests.TagsMatching)
 	add("ids", ids, s3tests.IDs)
 	add("exclude-groups", exGroups, s3tests.ExcludeGroups)
-	add("exclude-tags", exTags, s3tests.ExcludeTags)
+	add("exclude-tags", exTags, s3tests.ExcludeTagsMatching)
 	add("exclude-ids", exIDs, s3tests.ExcludeIDs)
 	return filters, properties
 }
@@ -281,7 +284,8 @@ func buildSkips(groups, tags, ids string, properties map[string]string) []s3test
 		properties[name] = val
 	}
 	add("skip-groups", groups, s3tests.Groups)
-	add("skip-tags", tags, s3tests.Tags)
+	// -skip-tags accepts '*' globs (e.g. 'quirk:*'), like -tags/-exclude-tags.
+	add("skip-tags", tags, s3tests.TagsMatching)
 	add("skip-ids", ids, s3tests.IDs)
 	return opts
 }

@@ -175,3 +175,7 @@ export function ids (...ids: string[]): FilterFunc
 export function excludeGroups (...names: string[]): FilterFunc
 export function excludeTags (...tags: string[]): FilterFunc
 export function excludeIds (...ids: string[]): FilterFunc
+/** Vectors carrying at least one tag matching any glob pattern (e.g. "quirk:*"; '*' is the only metacharacter). */
+export function tagsMatching (...patterns: string[]): FilterFunc
+/** Drop vectors carrying any tag matching any glob pattern (e.g. "quirk:*"). */
+export function excludeTagsMatching (...patterns: string[]): FilterFunc

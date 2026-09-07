@@ -342,6 +342,64 @@ func TestApplyFilters(t *testing.T) {
 	}
 }
 
+func TestGlobMatch(t *testing.T) {
+	cases := []struct {
+		pattern, s string
+		want       bool
+	}{
+		{"quirk:*", "quirk:not-aws", true},
+		{"quirk:*", "quirk:directory-bucket", true},
+		{"quirk:*", "tier-1", false},
+		{"quirk:not-aws", "quirk:not-aws", true}, // no wildcard: exact
+		{"quirk:not-aws", "quirk:directory-bucket", false},
+		{"*-bucket", "quirk:directory-bucket", true},
+		{"*aws*", "quirk:not-aws", true},
+		{"a*c", "abc", true},
+		{"a*c", "ab", false},
+		{"*", "anything", true},
+	}
+	for _, c := range cases {
+		if got := globMatch(c.pattern, c.s); got != c.want {
+			t.Errorf("globMatch(%q,%q)=%v want %v", c.pattern, c.s, got, c.want)
+		}
+	}
+}
+
+func TestTagsMatchingGlob(t *testing.T) {
+	vectors := corpusVectors(t)
+	// Every quirk-tagged vector is selected by "quirk:*" and dropped by the
+	// exclude form; the two partition the corpus.
+	quirks := ApplyFilters(vectors, TagsMatching("quirk:*"))
+	if len(quirks) == 0 {
+		t.Fatal("TagsMatching(quirk:*) selected nothing")
+	}
+	for _, v := range quirks {
+		hasQuirk := false
+		for _, tag := range v.Tags {
+			if strings.HasPrefix(tag, "quirk:") {
+				hasQuirk = true
+			}
+		}
+		if !hasQuirk {
+			t.Fatalf("TagsMatching(quirk:*) leaked non-quirk %s", v.ID)
+		}
+	}
+	rest := ApplyFilters(vectors, ExcludeTagsMatching("quirk:*"))
+	if len(quirks)+len(rest) != len(vectors) {
+		t.Errorf("quirk partition: %d + %d != %d", len(quirks), len(rest), len(vectors))
+	}
+	// A specific subtag selects a (non-empty) subset of the glob. quirk:not-aws
+	// is always present in the corpus; the exact-tag Tags filter and the glob
+	// must agree on it.
+	na := ApplyFilters(vectors, TagsMatching("quirk:not-aws"))
+	if len(na) == 0 || len(na) > len(quirks) {
+		t.Errorf("quirk:not-aws count %d not a subset of quirk:* %d", len(na), len(quirks))
+	}
+	if exact := ApplyFilters(vectors, Tags("quirk:not-aws")); len(exact) != len(na) {
+		t.Errorf("glob without '*' must equal exact Tags: %d vs %d", len(na), len(exact))
+	}
+}
+
 func TestRunSelectedVectors(t *testing.T) {
 	srv := httptest.NewServer(newFakeS3())
 	defer srv.Close()

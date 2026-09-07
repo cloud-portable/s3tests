@@ -30,3 +30,5 @@ github.com/cloud-portable/s3vectors/packages/go v1.0.1-0.20260907115341-668326c3
 github.com/cloud-portable/s3vectors/packages/go v1.0.1-0.20260907115341-668326c34057/go.mod h1:UVVpQAo0GCbDK9jUGhZygn1J1vaaLyMi+FMUbC/zsqs=
 github.com/cloud-portable/s3vectors/packages/go v1.0.1-0.20260907125202-69f29721cfbc h1:RFyl+mqHoiKlpo3DamiQBoRluI/4NoBNruMv2qQsd/I=
 github.com/cloud-portable/s3vectors/packages/go v1.0.1-0.20260907125202-69f29721cfbc/go.mod h1:UVVpQAo0GCbDK9jUGhZygn1J1vaaLyMi+FMUbC/zsqs=
+github.com/cloud-portable/s3vectors/packages/go v1.0.1-0.20260907160349-d9bf3d48156d h1:0lyMI/0oEVT1RE2OCqhFbpt6uK9NmFwEo/LPMw+b/Ag=
+github.com/cloud-portable/s3vectors/packages/go v1.0.1-0.20260907160349-d9bf3d48156d/go.mod h1:UVVpQAo0GCbDK9jUGhZygn1J1vaaLyMi+FMUbC/zsqs=

@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { Runner, vectors, applyFilters, groups, tags, ids, excludeGroups, excludeTags, excludeIds, skip } from '../index.js'
+import { Runner, vectors, applyFilters, groups, tags, ids, excludeGroups, excludeTags, excludeIds, tagsMatching, excludeTagsMatching, skip } from '../index.js'
 import { startFakeS3 } from './helpers/fake-s3.js'
 
 const passVector = () => ({
@@ -160,6 +160,19 @@ test('applyFilters composes with AND semantics', () => {
   assert.equal(applyFilters(tier1mp, excludeTags('tier-1')).length, 0)
   const custom = applyFilters(all, (v) => (v.steps ?? []).length > 10)
   assert.ok(custom.every((v) => v.steps.length > 10))
+})
+
+test('tagsMatching / excludeTagsMatching apply glob patterns', () => {
+  const all = vectors()
+  const quirks = applyFilters(all, tagsMatching('quirk:*'))
+  assert.ok(quirks.length > 0)
+  assert.ok(quirks.every((v) => (v.tags ?? []).some((t) => t.startsWith('quirk:'))))
+  // quirk:* and its exclusion partition the corpus.
+  assert.equal(quirks.length + applyFilters(all, excludeTagsMatching('quirk:*')).length, all.length)
+  // A pattern with no '*' is an exact match, equal to the plain tags() filter.
+  const na = applyFilters(all, tagsMatching('quirk:not-aws'))
+  assert.ok(na.length > 0 && na.length <= quirks.length)
+  assert.equal(na.length, applyFilters(all, tags('quirk:not-aws')).length)
 })
 
 test('run yields exactly the given vectors; breaking cancels', async () => {

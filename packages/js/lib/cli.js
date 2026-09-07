@@ -19,7 +19,7 @@
 import { parseArgs } from 'node:util'
 import { createWriteStream } from 'node:fs'
 import { once } from 'node:events'
-import { Runner, vectors, applyFilters, groups, tags, ids, excludeGroups, excludeTags, excludeIds, skip } from '../index.js'
+import { Runner, vectors, applyFilters, groups, ids, excludeGroups, excludeIds, tagsMatching, excludeTagsMatching, skip } from '../index.js'
 import * as junit from '../report/junit.js'
 import * as html from '../report/html.js'
 
@@ -70,7 +70,7 @@ connection:
   --alt-canonical-id <id>   second identity canonical id (for ACL vectors)
   --alt-display-name <name> second identity display name
 
-selection (comma-separated):
+selection (comma-separated; --*-tags accept '*' globs, e.g. 'quirk:*'):
   --groups, --tags, --ids                          vectors to run (empty = all)
   --exclude-groups, --exclude-tags, --exclude-ids  drop from the run (absent from results)
   --skip-groups, --skip-tags, --skip-ids           skip: not run, but recorded as skipped in results
@@ -237,10 +237,12 @@ function buildFilters (values) {
     properties[name] = val
   }
   add('groups', groups)
-  add('tags', tags)
+  // Tag flags accept '*' globs (e.g. --exclude-tags 'quirk:*'); tags never
+  // contain '*', so a plain tag stays an exact match.
+  add('tags', tagsMatching)
   add('ids', ids)
   add('exclude-groups', excludeGroups)
-  add('exclude-tags', excludeTags)
+  add('exclude-tags', excludeTagsMatching)
   add('exclude-ids', excludeIds)
   return { filters, properties }
 }
@@ -258,7 +260,8 @@ function buildSkips (values, properties) {
     properties[name] = val
   }
   add('skip-groups', groups)
-  add('skip-tags', tags)
+  // --skip-tags accepts '*' globs (e.g. 'quirk:*'), like --tags/--exclude-tags.
+  add('skip-tags', tagsMatching)
   add('skip-ids', ids)
   return rules
 }

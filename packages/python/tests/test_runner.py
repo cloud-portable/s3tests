@@ -4,7 +4,8 @@ import threading
 import unittest
 
 from cloud_portable_s3tests import (
-    Config, Credential, Runner, apply_filters, exclude_groups, exclude_ids, exclude_tags, groups, ids, skip, tags, vectors,
+    Config, Credential, Runner, apply_filters, exclude_groups, exclude_ids, exclude_tags,
+    exclude_tags_matching, groups, ids, skip, tags, tags_matching, vectors,
 )
 from helpers.fake_s3 import FakeS3
 
@@ -135,6 +136,20 @@ class TestRunner(unittest.TestCase):
         self.assertEqual(apply_filters(tier1mp, exclude_tags("tier-1")), [])
         custom = apply_filters(all_, lambda v: len(v.get("steps") or []) > 10)
         self.assertTrue(all(len(v["steps"]) > 10 for v in custom))
+
+    def test_tags_matching_applies_glob_patterns(self):
+        all_ = vectors()
+        quirks = apply_filters(all_, tags_matching("quirk:*"))
+        self.assertTrue(quirks)
+        self.assertTrue(all(any(t.startswith("quirk:") for t in v.get("tags") or []) for v in quirks))
+        # quirk:* and its exclusion partition the corpus.
+        self.assertEqual(
+            len(quirks) + len(apply_filters(all_, exclude_tags_matching("quirk:*"))), len(all_)
+        )
+        # A pattern with no '*' is an exact match, equal to the plain tags() filter.
+        na = apply_filters(all_, tags_matching("quirk:not-aws"))
+        self.assertTrue(0 < len(na) <= len(quirks))
+        self.assertEqual(len(na), len(apply_filters(all_, tags("quirk:not-aws"))))
 
     def test_run_yields_exactly_the_given_vectors_breaking_cancels(self):
         runner = new_runner(self.srv.url, concurrency=2)

@@ -24,7 +24,7 @@ import { all } from '@cloud-portable/s3vectors'
 export { Runner } from './lib/runner.js'
 export { defaultProvisioner } from './lib/provision.js'
 export {
-  applyFilters, groups, tags, ids, excludeGroups, excludeTags, excludeIds
+  applyFilters, groups, tags, ids, excludeGroups, excludeTags, excludeIds, tagsMatching, excludeTagsMatching
 } from './lib/filter.js'
 export { skip } from './lib/skip.js'
 

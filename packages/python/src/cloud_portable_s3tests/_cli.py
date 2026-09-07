@@ -28,7 +28,7 @@ import time
 from datetime import datetime, timezone
 from typing import IO, Callable
 
-from . import apply_filters, exclude_groups, exclude_ids, exclude_tags, groups, ids, skip, tags, vectors
+from . import apply_filters, exclude_groups, exclude_ids, exclude_tags_matching, groups, ids, skip, tags_matching, vectors
 from ._config import Config, Credential
 from ._result import VectorResult
 from ._runner import Runner
@@ -55,7 +55,7 @@ connection:
   --alt-canonical-id <id>   second identity canonical id (for ACL vectors)
   --alt-display-name <name> second identity display name
 
-selection (comma-separated):
+selection (comma-separated; --*-tags accept '*' globs, e.g. 'quirk:*'):
   --groups, --tags, --ids                          vectors to run (empty = all)
   --exclude-groups, --exclude-tags, --exclude-ids  drop from the run (absent from results)
   --skip-groups, --skip-tags, --skip-ids           skip: not run, but recorded as skipped in results
@@ -241,9 +241,11 @@ def _build_filters(values: dict) -> tuple[list, dict[str, str]]:
     reports so filtered runs self-describe."""
     filters = []
     properties: dict[str, str] = {}
+    # Tag flags accept '*' globs (e.g. --exclude-tags 'quirk:*'); tags never
+    # contain '*', so a plain tag stays an exact match.
     for name, ctor in (
-        ("groups", groups), ("tags", tags), ("ids", ids),
-        ("exclude-groups", exclude_groups), ("exclude-tags", exclude_tags), ("exclude-ids", exclude_ids),
+        ("groups", groups), ("tags", tags_matching), ("ids", ids),
+        ("exclude-groups", exclude_groups), ("exclude-tags", exclude_tags_matching), ("exclude-ids", exclude_ids),
     ):
         val = values[name.replace("-", "_")]
         if val:
@@ -258,7 +260,8 @@ def _build_skips(values: dict, properties: dict[str, str]) -> list:
     skipped them as the reason; the flag values are also stamped into
     properties."""
     rules = []
-    for name, ctor in (("skip-groups", groups), ("skip-tags", tags), ("skip-ids", ids)):
+    # --skip-tags accepts '*' globs (e.g. 'quirk:*'), like --tags/--exclude-tags.
+    for name, ctor in (("skip-groups", groups), ("skip-tags", tags_matching), ("skip-ids", ids)):
         val = values[name.replace("-", "_")]
         if val:
             rules.append(skip(f"skipped by --{name}", ctor(*val.split(","))))

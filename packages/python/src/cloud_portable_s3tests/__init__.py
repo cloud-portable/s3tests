@@ -26,7 +26,8 @@ from __future__ import annotations
 from cloud_portable_s3vectors import load_all
 
 from ._filter import (
-    FilterFunc, Vector, apply_filters, exclude_groups, exclude_ids, exclude_tags, groups, ids, tags,
+    FilterFunc, Vector, apply_filters, exclude_groups, exclude_ids, exclude_tags,
+    exclude_tags_matching, groups, ids, tags, tags_matching,
 )
 from ._result import BLOCKED, FAIL, PASS, SKIPPED, CheckFailure, Outcome, StepResult, VectorResult
 from ._skip import SkipFunc, skip
@@ -34,6 +35,7 @@ from ._skip import SkipFunc, skip
 __all__ = [
     "Runner", "Config", "Credential", "vectors",
     "apply_filters", "groups", "tags", "ids", "exclude_groups", "exclude_tags", "exclude_ids",
+    "tags_matching", "exclude_tags_matching",
     "skip", "default_provisioner", "Provisioner", "Target", "BucketInfo", "ObjectInfo",
     "Outcome", "PASS", "FAIL", "BLOCKED", "SKIPPED", "VectorResult", "StepResult", "CheckFailure",
     "FilterFunc", "SkipFunc", "Vector",
