@@ -299,6 +299,7 @@ details[open] > .disclosure-trigger .disclosure-icon { transform: rotate(90deg);
 }
 
 .test-title { font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 0.5rem; }
+.test-description { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5; margin-bottom: 0.5rem; }
 .test-desc > :last-child { margin-bottom: 0; }
 /* A hairline separates the vector's description from its outcome detail,
    only when both are present (adjacent-sibling selector). */
@@ -488,6 +489,9 @@ footer { margin-top: 3rem; padding-top: 1.5rem; }
 {{#hasTitle}}
                 <p class="test-title">{{title}}</p>
 {{/hasTitle}}
+{{#hasDescription}}
+                <p class="test-description">{{description}}</p>
+{{/hasDescription}}
 {{#hasTags}}
                 <div class="test-tags">{{#tags}}<span class="tag">{{.}}</span>{{/tags}}</div>
 {{/hasTags}}

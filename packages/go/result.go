@@ -24,10 +24,13 @@ const (
 
 // VectorResult is the outcome of one vector.
 type VectorResult struct {
-	ID    string   `json:"id"`
-	Group string   `json:"group"`
-	Title string   `json:"title,omitempty"`
-	Tags  []string `json:"tags,omitempty"`
+	ID    string `json:"id"`
+	Group string `json:"group"`
+	Title string `json:"title,omitempty"`
+	// Description is the vector's longer explanatory note, when the corpus
+	// records one — surfaced in reports alongside the title.
+	Description string   `json:"description,omitempty"`
+	Tags        []string `json:"tags,omitempty"`
 	// Source is the URL of the test this vector was converted from, when the
 	// corpus records one — useful in reports for tracing a failure back to
 	// its origin.

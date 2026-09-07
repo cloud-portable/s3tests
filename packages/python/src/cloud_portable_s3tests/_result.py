@@ -91,6 +91,7 @@ class VectorResult:
     id: str
     group: str
     title: str = ""
+    description: str = ""
     tags: list[str] = field(default_factory=list)
     # URL of the test this vector was converted from, when the corpus records
     # one — useful in reports for tracing a failure back to its origin.
@@ -115,6 +116,7 @@ class VectorResult:
             "id": self.id,
             "group": self.group,
             "title": self.title,
+            "description": self.description,
             "tags": list(self.tags),
             "source": self.source,
             "outcome": self.outcome,
@@ -131,6 +133,7 @@ class VectorResult:
             id=str(d.get("id", "")),
             group=str(d.get("group", "")),
             title=str(d.get("title", "")),
+            description=str(d.get("description", "")),
             tags=[str(t) for t in d.get("tags") or []],
             source=str(d.get("source", "")),
             outcome=d.get("outcome", PASS),

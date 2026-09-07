@@ -299,6 +299,7 @@ details[open] > .disclosure-trigger .disclosure-icon { transform: rotate(90deg);
 }
 
 .test-title { font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 0.5rem; }
+.test-description { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5; margin-bottom: 0.5rem; }
 .test-desc > :last-child { margin-bottom: 0; }
 /* A hairline separates the vector's description from its outcome detail,
    only when both are present (adjacent-sibling selector). */
@@ -532,6 +533,7 @@ footer { margin-top: 3rem; padding-top: 1.5rem; }
             <div class="test-details">
               <div class="test-desc">
                 <p class="test-title">two-part multipart upload with read-back</p>
+                <p class="test-description">Uploads two parts, completes the upload, and reads the object back to confirm the assembled content and ETag.</p>
                 <div class="test-tags"><span class="tag">tier-1</span><span class="tag">multipart</span></div>
               </div>
               <div class="test-links">
@@ -643,6 +645,9 @@ error: expected InvalidPart &amp; &#34;&lt;quoted&gt;&#34; = &#39;tricky&#39; / 
               </span>
             </summary>
             <div class="test-details">
+              <div class="test-desc">
+                <p class="test-description">Exercises the &lt;suspended&gt; versioning state &amp; its &#34;null&#34; version id; skipped here by the slow-tag filter.</p>
+              </div>
               <div class="test-outcome">
                 <p class="test-reason">skipped: excluded by tag filter: slow</p>
               </div>

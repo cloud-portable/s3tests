@@ -27,6 +27,7 @@ def new_result(vector: dict, outcome: str = PASS, reason: str = "") -> VectorRes
         id=vector.get("id", ""),
         group=vector.get("group", ""),
         title=vector.get("title", "") or "",
+        description=vector.get("description", "") or "",
         tags=list(vector.get("tags") or []),
         source=vector.get("source", "") or "",
         outcome=outcome,  # type: ignore[arg-type]

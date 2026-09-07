@@ -254,6 +254,7 @@ func vectorView(res s3tests.VectorResult) map[string]any {
 		"id": res.ID, "badge": badge,
 		"duration": vectorDuration(res.Duration),
 		"title":    res.Title, "hasTitle": res.Title != "",
+		"description": res.Description, "hasDescription": res.Description != "",
 		"tags": tags, "hasTags": len(tags) > 0,
 		"reason": reason, "hasReason": reason != "",
 		"summary": summary, "hasSummary": summary != "",
@@ -261,7 +262,7 @@ func vectorView(res s3tests.VectorResult) map[string]any {
 		"warnings": warnings,
 		"source":   res.Source, "hasSource": res.Source != "",
 		"definitionURL": definitionURL(res.Group, res.ID),
-		"hasDesc":       res.Title != "" || len(tags) > 0,
+		"hasDesc":       res.Title != "" || res.Description != "" || len(tags) > 0,
 		"hasOutcome":    reason != "" || summary != "" || detail != "" || len(warnings) > 0,
 	}
 }

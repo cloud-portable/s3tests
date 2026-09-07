@@ -23,6 +23,7 @@ export function newResult (vector, outcome = 'pass', reason = '') {
     id: vector.id,
     group: vector.group,
     title: vector.title ?? '',
+    description: vector.description ?? '',
     tags: vector.tags ?? [],
     source: vector.source ?? '',
     outcome,

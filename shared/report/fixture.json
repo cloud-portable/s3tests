@@ -14,6 +14,7 @@
       "id": "multipart-0001",
       "group": "multipart",
       "title": "two-part multipart upload with read-back",
+      "description": "Uploads two parts, completes the upload, and reads the object back to confirm the assembled content and ETag.",
       "tags": ["tier-1", "multipart"],
       "source": "https://github.com/example/tests/blob/main/tests.json#L7",
       "outcome": "pass",
@@ -62,6 +63,7 @@
     {
       "id": "versioning-0004",
       "group": "versioning",
+      "description": "Exercises the <suspended> versioning state & its \"null\" version id; skipped here by the slow-tag filter.",
       "outcome": "skipped",
       "reason": "excluded by tag filter: slow",
       "duration": 0

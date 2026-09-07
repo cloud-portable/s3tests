@@ -176,6 +176,7 @@ function vectorView (res) {
   const tags = res.tags ?? []
   const warnings = res.warnings ?? []
   const title = res.title ?? ''
+  const description = res.description ?? ''
   const source = res.source ?? ''
   return {
     id: res.id,
@@ -183,6 +184,8 @@ function vectorView (res) {
     duration: vectorDuration(res.duration),
     title,
     hasTitle: title !== '',
+    description,
+    hasDescription: description !== '',
     tags,
     hasTags: tags.length > 0,
     reason,
@@ -195,7 +198,7 @@ function vectorView (res) {
     source,
     hasSource: source !== '',
     definitionURL: definitionURL(res.group, res.id),
-    hasDesc: title !== '' || tags.length > 0,
+    hasDesc: title !== '' || description !== '' || tags.length > 0,
     hasOutcome: reason !== '' || summary !== '' || detail !== '' || warnings.length > 0
   }
 }

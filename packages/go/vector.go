@@ -28,7 +28,7 @@ type vectorRun struct {
 
 // newResult seeds a result with the vector's identifying metadata.
 func newResult(v *s3vectors.Vector) VectorResult {
-	return VectorResult{ID: v.ID, Group: v.Group, Title: v.Title, Tags: v.Tags, Source: v.Source}
+	return VectorResult{ID: v.ID, Group: v.Group, Title: v.Title, Description: v.Description, Tags: v.Tags, Source: v.Source}
 }
 
 func (r *Runner) runVector(ctx context.Context, v *s3vectors.Vector) VectorResult {

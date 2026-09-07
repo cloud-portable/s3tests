@@ -190,6 +190,8 @@ def vector_view(res: VectorResult) -> dict[str, Any]:
         "duration": vector_duration(res.duration),
         "title": res.title,
         "hasTitle": res.title != "",
+        "description": res.description,
+        "hasDescription": res.description != "",
         "tags": tags,
         "hasTags": len(tags) > 0,
         "reason": reason,
@@ -202,7 +204,7 @@ def vector_view(res: VectorResult) -> dict[str, Any]:
         "source": res.source,
         "hasSource": res.source != "",
         "definitionURL": definition_url(res.group, res.id),
-        "hasDesc": res.title != "" or len(tags) > 0,
+        "hasDesc": res.title != "" or res.description != "" or len(tags) > 0,
         "hasOutcome": reason != "" or summary != "" or detail != "" or len(warnings) > 0,
     }
 
