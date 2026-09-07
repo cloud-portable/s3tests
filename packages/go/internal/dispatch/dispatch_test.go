@@ -117,7 +117,7 @@ func TestCallSuccessAndCapture(t *testing.T) {
 	}))
 	defer srv.Close()
 	res, err := Call(context.Background(), testClient(srv.URL), "CreateMultipartUpload",
-		map[string]json.RawMessage{"Bucket": json.RawMessage(`"b"`), "Key": json.RawMessage(`"k"`)}, nil)
+		map[string]json.RawMessage{"Bucket": json.RawMessage(`"b"`), "Key": json.RawMessage(`"k"`)}, nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -143,7 +143,7 @@ func TestCallErrorMapping(t *testing.T) {
 	}))
 	defer srv.Close()
 	res, err := Call(context.Background(), testClient(srv.URL), "GetObject",
-		map[string]json.RawMessage{"Bucket": json.RawMessage(`"b"`), "Key": json.RawMessage(`"missing"`)}, nil)
+		map[string]json.RawMessage{"Bucket": json.RawMessage(`"b"`), "Key": json.RawMessage(`"missing"`)}, nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -161,7 +161,7 @@ func TestCallHeadEmptyBodyError(t *testing.T) {
 	}))
 	defer srv.Close()
 	res, err := Call(context.Background(), testClient(srv.URL), "HeadObject",
-		map[string]json.RawMessage{"Bucket": json.RawMessage(`"b"`), "Key": json.RawMessage(`"k"`)}, nil)
+		map[string]json.RawMessage{"Bucket": json.RawMessage(`"b"`), "Key": json.RawMessage(`"k"`)}, nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -179,7 +179,7 @@ func TestCallBodyDrain(t *testing.T) {
 	}))
 	defer srv.Close()
 	res, err := Call(context.Background(), testClient(srv.URL), "GetObject",
-		map[string]json.RawMessage{"Bucket": json.RawMessage(`"b"`), "Key": json.RawMessage(`"k"`)}, nil)
+		map[string]json.RawMessage{"Bucket": json.RawMessage(`"b"`), "Key": json.RawMessage(`"k"`)}, nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}

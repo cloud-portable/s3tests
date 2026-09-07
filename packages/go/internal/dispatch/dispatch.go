@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	s3types "github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/aws/smithy-go"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
@@ -289,7 +290,7 @@ func parseTime(s string) (time.Time, error) {
 // Call executes one operation. A returned error is a *runner* problem
 // (unsupported operation, undecodable params); server-side failures are
 // reported inside Result.
-func Call(ctx context.Context, client *s3.Client, name string, params map[string]json.RawMessage, resolve match.ContentResolver) (*Result, error) {
+func Call(ctx context.Context, client *s3.Client, name string, params map[string]json.RawMessage, resolve match.ContentResolver, region string) (*Result, error) {
 	m := reflect.ValueOf(client).MethodByName(name)
 	if !m.IsValid() {
 		return nil, fmt.Errorf("operation %s is not supported by aws-sdk-go-v2 service/s3", name)
@@ -297,6 +298,15 @@ func Call(ctx context.Context, client *s3.Client, name string, params map[string
 	in, _, err := BuildInput(name, params, resolve)
 	if err != nil {
 		return nil, err
+	}
+	// Every region other than us-east-1 requires a LocationConstraint on
+	// CreateBucket; us-east-1 is the legacy default that rejects one. Inject it
+	// for the target region so a plain CreateBucket step is portable, unless the
+	// vector set its own CreateBucketConfiguration (e.g. a cross-region test).
+	if ci, ok := in.(*s3.CreateBucketInput); ok && region != "" && region != "us-east-1" && ci.CreateBucketConfiguration == nil {
+		ci.CreateBucketConfiguration = &s3types.CreateBucketConfiguration{
+			LocationConstraint: s3types.BucketLocationConstraint(region),
+		}
 	}
 	var rc rawCapture
 	optFn := func(o *s3.Options) {

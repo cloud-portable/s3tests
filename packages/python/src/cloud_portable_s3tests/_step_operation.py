@@ -47,7 +47,7 @@ def run_operation_step(run: Run, src: dict, sr: StepResult) -> None:
         sr.err = "run cancelled"
         return
     try:
-        res = call(client, op["name"], op.get("params"), run.cache.bytes)
+        res = call(client, op["name"], op.get("params"), run.cache.bytes, run.rt.cfg.region)
     except Exception as err:  # noqa: BLE001 - unsupported op / undecodable params
         return runner_fail(run, sr, err)
     sr.status = res.status

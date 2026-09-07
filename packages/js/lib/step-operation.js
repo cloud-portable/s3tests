@@ -43,7 +43,7 @@ export async function runOperationStep (run, src, sr) {
   }
   let res
   try {
-    res = await call(client, op.name, op.params, (n) => run.cache.bytes(n), run.signal)
+    res = await call(client, op.name, op.params, (n) => run.cache.bytes(n), run.signal, run.rt.cfg.region)
   } catch (err) {
     return runnerFail(run, sr, err)
   }

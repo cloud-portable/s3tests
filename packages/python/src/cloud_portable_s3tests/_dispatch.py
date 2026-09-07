@@ -42,7 +42,7 @@ class DispatchResult:
     msg: str = ""
 
 
-def call(client, name: str, params: Optional[dict[str, Any]], resolve: Optional[Resolver]) -> DispatchResult:
+def call(client, name: str, params: Optional[dict[str, Any]], resolve: Optional[Resolver], region: str = "") -> DispatchResult:
     """Execute one operation. Raises only for *runner* problems (unsupported
     operation, undecodable params); server-side failures are reported inside
     the result."""
@@ -50,6 +50,12 @@ def call(client, name: str, params: Optional[dict[str, Any]], resolve: Optional[
         raise unsupported_error(name)
     model = client.meta.service_model.operation_model(name)
     kwargs, _ = build_input(model, params or {}, resolve)
+    # Every region other than us-east-1 requires a LocationConstraint on
+    # CreateBucket; us-east-1 is the legacy default that rejects one. Inject it
+    # for the target region so a plain CreateBucket step is portable, unless the
+    # vector set its own CreateBucketConfiguration (e.g. a cross-region test).
+    if name == "CreateBucket" and region and region != "us-east-1" and "CreateBucketConfiguration" not in kwargs:
+        kwargs["CreateBucketConfiguration"] = {"LocationConstraint": region}
     method = getattr(client, xform_name(name))
     res = DispatchResult()
     try:

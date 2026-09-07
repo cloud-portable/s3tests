@@ -47,7 +47,7 @@ func (vr *vectorRun) runOperationStep(ctx context.Context, src *s3vectors.Operat
 		vr.runnerFail(sr, err)
 		return
 	}
-	res, err := dispatch.Call(ctx, client, op.Name, op.Params, vr.cache.Bytes)
+	res, err := dispatch.Call(ctx, client, op.Name, op.Params, vr.cache.Bytes, vr.runner.cfg.Region)
 	if err != nil {
 		vr.runnerFail(sr, err)
 		return

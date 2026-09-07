@@ -26,10 +26,17 @@ export function unsupportedError (name) {
  * @returns {Promise<{status: number, headers: object, output: unknown,
  *   body: Uint8Array | null, err: Error | null, code: string, msg: string}>}
  */
-export async function call (client, name, params, resolveData, signal) {
+export async function call (client, name, params, resolveData, signal, region) {
   const Command = clientS3[name + 'Command']
   if (typeof Command !== 'function') throw unsupportedError(name)
   const { input } = buildInput(params ?? {}, resolveData)
+  // Every region other than us-east-1 requires a LocationConstraint on
+  // CreateBucket; us-east-1 is the legacy default that rejects one. Inject it
+  // for the target region so a plain CreateBucket step is portable, unless the
+  // vector set its own CreateBucketConfiguration (e.g. a cross-region test).
+  if (name === 'CreateBucket' && region && region !== 'us-east-1' && input.CreateBucketConfiguration == null) {
+    input.CreateBucketConfiguration = { LocationConstraint: region }
+  }
   const cmd = new Command(input)
 
   // Capture the wire status/headers between the deserializer and the HTTP
