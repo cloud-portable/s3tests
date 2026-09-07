@@ -9,7 +9,8 @@ test('scalar equality', () => {
     ['a', 'a', true],
     ['a', 'b', false],
     [5, 5, true],
-    [5, '5', false], // string is not a number
+    [5, '5', true],  // numeric expectation matches its canonical string form (cross-SDK)
+    [5, '5x', false], // ...but only when the string is actually numeric
     [true, true, true],
     [null, null, true],
     [10485760, 10485760, true]

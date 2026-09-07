@@ -185,8 +185,19 @@ func literalEqual(expected, actual any) bool {
 
 func scalarEqual(expected, actual any) bool {
 	if en, ok := toFloat(expected); ok {
-		an, ok := toFloat(actual)
-		return ok && en == an
+		if an, ok := toFloat(actual); ok {
+			return en == an
+		}
+		// A numeric expectation may meet its canonical string form: SDKs model
+		// numeric S3 XML fields inconsistently (ListParts NextPartNumberMarker
+		// is an int in boto3 but a string in aws-sdk-go-v2), so "3" from one
+		// implementation must equal 3 from another for the corpus to be portable.
+		if as, ok := actual.(string); ok {
+			if an, err := strconv.ParseFloat(as, 64); err == nil {
+				return en == an
+			}
+		}
+		return false
 	}
 	switch e := expected.(type) {
 	case string:

@@ -14,7 +14,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/s3"
@@ -261,7 +263,14 @@ func (d *decoder) objectIntoString(f reflect.Value, obj map[string]any, name str
 		bucket, _ := obj["Bucket"].(string)
 		key, _ := obj["Key"].(string)
 		if bucket != "" && key != "" {
-			src := bucket + "/" + key
+			// The SDK does not encode CopySource, so percent-encode the key
+			// here (each segment; "/" separators are preserved) to keep special
+			// characters (spaces, "?", ...) out of the wire header.
+			segs := strings.Split(key, "/")
+			for i, seg := range segs {
+				segs[i] = url.PathEscape(seg)
+			}
+			src := bucket + "/" + strings.Join(segs, "/")
 			if vid, _ := obj["VersionId"].(string); vid != "" {
 				src += "?versionId=" + vid
 			}

@@ -44,7 +44,11 @@ export function buildInput (params, resolveData) {
       // Object-valued string params: boto3-style CopySource and binary
       // content descriptors (SSE-C keys), whose wire form is base64.
       if (key === 'CopySource' && typeof value.Bucket === 'string' && typeof value.Key === 'string') {
-        let src = value.Bucket + '/' + value.Key
+        // The SDK does not encode CopySource, so percent-encode the key here
+        // (each segment; '/' separators are preserved) to keep special
+        // characters (spaces, '?', ...) out of the wire header.
+        const encKey = value.Key.split('/').map(encodeURIComponent).join('/')
+        let src = value.Bucket + '/' + encKey
         if (typeof value.VersionId === 'string' && value.VersionId !== '') src += '?versionId=' + value.VersionId
         return src
       }

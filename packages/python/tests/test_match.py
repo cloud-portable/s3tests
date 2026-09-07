@@ -11,7 +11,8 @@ class TestMatch(unittest.TestCase):
             ("a", "a", True),
             ("a", "b", False),
             (5, 5, True),
-            (5, "5", False),  # string is not a number
+            (5, "5", True),  # numeric expectation matches its canonical string form (cross-SDK)
+            (5, "5x", False),  # ...but only when the string is actually numeric
             (True, True, True),
             (True, 1, False),  # bool is not a number
             (None, None, True),

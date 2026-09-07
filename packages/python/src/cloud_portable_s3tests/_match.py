@@ -147,7 +147,17 @@ def _is_number(v: Any) -> bool:
 
 def _scalar_equal(expected: Any, actual: Any) -> bool:
     if _is_number(expected):
-        return _is_number(actual) and expected == actual
+        if _is_number(actual):
+            return expected == actual
+        # A numeric expectation may meet its canonical string form: SDKs model
+        # numeric S3 XML fields inconsistently (ListParts NextPartNumberMarker
+        # is an int in boto3 but a string in aws-sdk-go-v2), so "3" must equal 3.
+        if isinstance(actual, str):
+            try:
+                return float(expected) == float(actual)
+            except ValueError:
+                return False
+        return False
     if isinstance(expected, str):
         return isinstance(actual, str) and actual == expected
     if isinstance(expected, bool):

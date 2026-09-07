@@ -137,7 +137,14 @@ function literalEqual (expected, actual) {
 }
 
 function scalarEqual (expected, actual) {
-  if (typeof expected === 'number') return typeof actual === 'number' && expected === actual
+  if (typeof expected === 'number') {
+    if (typeof actual === 'number') return expected === actual
+    // A numeric expectation may meet its canonical string form: SDKs model
+    // numeric S3 XML fields inconsistently (ListParts NextPartNumberMarker is
+    // a number in boto3 but a string in aws-sdk-js), so "3" must equal 3.
+    if (typeof actual === 'string' && actual.trim() !== '' && Number.isFinite(Number(actual))) return expected === Number(actual)
+    return false
+  }
   if (typeof expected === 'string') return actual === expected
   if (typeof expected === 'boolean') return actual === expected
   if (expected === null) return actual === null || actual === undefined

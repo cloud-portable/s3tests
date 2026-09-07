@@ -25,7 +25,8 @@ func TestScalars(t *testing.T) {
 		{`"a"`, "b", false},
 		{`5`, int64(5), true},
 		{`5`, float64(5), true},
-		{`5`, "5", false}, // string is not a number
+		{`5`, "5", true},   // numeric expectation matches its canonical string form (cross-SDK)
+		{`5`, "5x", false}, // ...but only when the string is actually numeric
 		{`true`, true, true},
 		{`null`, nil, true},
 		{`10485760`, int64(10485760), true},
