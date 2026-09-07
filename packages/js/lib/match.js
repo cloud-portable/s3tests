@@ -65,7 +65,7 @@ function assertion (path, m, actual, present) {
         }
         break
       case '$absent':
-        if (present === Boolean(arg)) {
+        if (effectivelyAbsent(actual, present) !== Boolean(arg)) {
           out.push({ path, expected: `absent: ${Boolean(arg)}`, actual: presence(actual, present) })
         }
         break
@@ -162,6 +162,15 @@ function lengthActual (v, present) {
   if (!present) return '(absent)'
   const n = lengthOf(v)
   return n === undefined ? `${typeof v} (no length)` : `length ${n}`
+}
+
+// effectivelyAbsent reports whether a field is missing or carries a value-typed
+// zero value. Some SDKs cannot represent an absent scalar (the Go SDK decodes an
+// omitted enum such as a bucket's unset versioning Status as ""), so an empty
+// string is indistinguishable from absent; $absent accepts both.
+function effectivelyAbsent (actual, present) {
+  if (!present) return true
+  return actual == null || actual === ''
 }
 
 function presence (v, present) {

@@ -40,6 +40,7 @@ class TestMatch(unittest.TestCase):
             ("exists no", {"$exists": True}, None, False, False),
             ("absent yes", {"$absent": True}, None, False, True),
             ("absent no", {"$absent": True}, "v", True, False),
+            ("absent empty string", {"$absent": True}, "", True, True),
             ("eq assertion-looking literal", {"$eq": {"$exists": True}}, {"$exists": True}, True, True),
             ("eq scalar", {"$eq": 5}, 5, True, True),
             ("matches", {"$matches": '-2"$'}, '"abc-2"', True, True),

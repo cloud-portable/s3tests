@@ -41,6 +41,7 @@ test('assertion operators', () => {
     ['exists no', { $exists: true }, undefined, false, false],
     ['absent yes', { $absent: true }, undefined, false, true],
     ['absent no', { $absent: true }, 'v', true, false],
+    ['absent empty string', { $absent: true }, '', true, true],
     ['eq assertion-looking literal', { $eq: { $exists: true } }, { $exists: true }, true, true],
     ['eq scalar', { $eq: 5 }, 5, true, true],
     ['matches', { $matches: '-2"$' }, '"abc-2"', true, true],

@@ -85,7 +85,7 @@ def _assertion(path: str, m: dict, actual: Any, present: bool) -> list[Mismatch]
             if present != bool(arg):
                 out.append(Mismatch(path, f"exists: {_js_bool(bool(arg))}", _presence(actual, present)))
         elif op == "$absent":
-            if present == bool(arg):
+            if _effectively_absent(actual, present) != bool(arg):
                 out.append(Mismatch(path, f"absent: {_js_bool(bool(arg))}", _presence(actual, present)))
         elif op == "$eq":
             if not present or not _literal_equal(arg, actual):
@@ -194,6 +194,16 @@ def _js_typeof(v: Any) -> str:
 
 def _js_bool(b: bool) -> str:
     return "true" if b else "false"
+
+
+def _effectively_absent(actual: Any, present: bool) -> bool:
+    """Whether a field is missing or carries a value-typed zero value. Some SDKs
+    cannot represent an absent scalar (the Go SDK decodes an omitted enum such as
+    a bucket's unset versioning Status as ""), so an empty string is
+    indistinguishable from absent; $absent accepts both."""
+    if not present:
+        return True
+    return actual is None or actual == ""
 
 
 def _presence(v: Any, present: bool) -> str:

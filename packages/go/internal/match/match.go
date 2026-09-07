@@ -97,7 +97,7 @@ func assertion(path string, m map[string]any, actual any, present bool) []Mismat
 				out = append(out, Mismatch{Path: path, Expected: fmt.Sprintf("exists: %v", want), Actual: presence(actual, present)})
 			}
 		case "$absent":
-			if want, _ := arg.(bool); present == want {
+			if want, _ := arg.(bool); effectivelyAbsent(actual, present) != want {
 				out = append(out, Mismatch{Path: path, Expected: fmt.Sprintf("absent: %v", want), Actual: presence(actual, present)})
 			}
 		case "$eq":
@@ -254,6 +254,17 @@ func lengthActual(v any, present bool) string {
 		return fmt.Sprintf("length %d", n)
 	}
 	return fmt.Sprintf("%T (no length)", v)
+}
+
+// effectivelyAbsent reports whether a field is missing or carries a value-typed
+// zero value. Some SDKs cannot represent an absent scalar — the aws-sdk-go-v2
+// decodes an omitted enum (e.g. a bucket's unset versioning Status) as "" — so
+// an empty string is indistinguishable from absent; $absent accepts both.
+func effectivelyAbsent(actual any, present bool) bool {
+	if !present {
+		return true
+	}
+	return actual == nil || actual == ""
 }
 
 func presence(v any, present bool) string {
