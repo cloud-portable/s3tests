@@ -49,8 +49,9 @@ const OPTIONS = {
   'skip-groups': { type: 'string' },
   'skip-tags': { type: 'string' },
   'skip-ids': { type: 'string' },
-  'no-skip': { type: 'string' },
-  'no-skip-matching': { type: 'string' },
+  'no-skip-groups': { type: 'string' },
+  'no-skip-tags': { type: 'string' },
+  'no-skip-ids': { type: 'string' },
   report: { type: 'string', multiple: true, short: 'r' },
   target: { type: 'string' },
   quiet: { type: 'boolean', default: false },
@@ -76,7 +77,7 @@ selection (comma-separated; --*-tags accept '*' globs, e.g. 'quirk:*'):
   --groups, --tags, --ids                          vectors to run (empty = all)
   --exclude-groups, --exclude-tags, --exclude-ids  drop from the run (absent from results)
   --skip-groups, --skip-tags, --skip-ids           skip: not run, but recorded as skipped in results
-  --no-skip, --no-skip-matching                    run quirk vectors that are skipped by default (exact tags / globs)
+  --no-skip-groups, --no-skip-tags, --no-skip-ids  run vectors despite the default quirk skip
 
 reporting:
   -r, --report <format>[=<path>]  write a report (formats: ${Object.keys(REPORTERS).sort().join(', ')};
@@ -155,10 +156,7 @@ export async function run (argv, stdout, stderr) {
     return 2
   }
   const skips = buildSkips(values, properties)
-  const noSkip = values['no-skip'] ? values['no-skip'].split(',') : []
-  const noSkipMatching = values['no-skip-matching'] ? values['no-skip-matching'].split(',') : []
-  if (values['no-skip']) properties['no-skip'] = values['no-skip']
-  if (values['no-skip-matching']) properties['no-skip-matching'] = values['no-skip-matching']
+  const noSkip = buildNoSkips(values, properties)
 
   // Ctrl-C cancels the run; in-flight vectors still tear their buckets down.
   // A second interrupt hard-exits.
@@ -178,7 +176,7 @@ export async function run (argv, stdout, stderr) {
   const results = []
   const started = Date.now()
   try {
-    for await (const res of runner.run(selected, { signal: ac.signal, skip: skips, noSkip, noSkipMatching })) {
+    for await (const res of runner.run(selected, { signal: ac.signal, skip: skips, noSkip })) {
       results.push(res)
       counts[res.outcome]++
       if (res.runnerError) runnerErrs++
@@ -271,6 +269,23 @@ function buildSkips (values, properties) {
   add('skip-tags', tagsMatching)
   add('skip-ids', ids)
   return rules
+}
+
+// The --no-skip-* flags as unskip filters for run(): they run vectors again
+// despite a skip rule (including the default quirk skip). They mirror the
+// --skip-* flags; --no-skip-tags accepts '*' globs.
+function buildNoSkips (values, properties) {
+  const filters = []
+  const add = (name, ctor) => {
+    const val = values[name]
+    if (!val) return
+    filters.push(ctor(...val.split(',')))
+    properties[name] = val
+  }
+  add('no-skip-groups', groups)
+  add('no-skip-tags', tagsMatching)
+  add('no-skip-ids', ids)
+  return filters
 }
 
 const ANSI = { reset: '\x1b[0m', green: '\x1b[32m', red: '\x1b[31m', amber: '\x1b[33m', violet: '\x1b[35m', dim: '\x1b[2m' }

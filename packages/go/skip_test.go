@@ -40,7 +40,7 @@ func TestDefaultQuirkSkip(t *testing.T) {
 	}
 
 	// NoSkip opts an exact tag back in, leaving other quirks skipped.
-	no := applyRunOptions(NoSkip("quirk:directory-bucket"))
+	no := applyRunOptions(NoSkip(TagsMatching("quirk:directory-bucket")))
 	if skipped(no, dir) {
 		t.Error("NoSkip should run the directory-bucket quirk")
 	}
@@ -48,10 +48,10 @@ func TestDefaultQuirkSkip(t *testing.T) {
 		t.Error("NoSkip of one tag must not un-skip other quirks")
 	}
 
-	// NoSkipMatching opts every quirk back in.
-	all := applyRunOptions(NoSkipMatching("quirk:*"))
+	// NoSkip with a glob filter opts every quirk back in.
+	all := applyRunOptions(NoSkip(TagsMatching("quirk:*")))
 	if skipped(all, quirk) || skipped(all, dir) {
-		t.Error("NoSkipMatching(quirk:*) should run all quirks")
+		t.Error("NoSkip(TagsMatching(quirk:*)) should run all quirks")
 	}
 
 	// Explicit Skip still applies (and to non-quirk vectors too).
@@ -62,8 +62,18 @@ func TestDefaultQuirkSkip(t *testing.T) {
 
 	// NoSkip unskips any matching Skip, not just the default quirk one.
 	plainTagged := &s3vectors.Vector{ID: "d", Tags: []string{"flaky"}}
-	un := applyRunOptions(Skip("flaky on this target", TagsMatching("flaky")), NoSkip("flaky"))
+	un := applyRunOptions(Skip("flaky on this target", TagsMatching("flaky")), NoSkip(TagsMatching("flaky")))
 	if skipped(un, plainTagged) {
 		t.Error("NoSkip should unskip an explicit Skip too")
+	}
+
+	// NoSkip accepts any filter, so a single quirk vector can be run by id
+	// while the rest stay skipped.
+	byID := applyRunOptions(NoSkip(IDs("a")))
+	if skipped(byID, quirk) {
+		t.Error("NoSkip(IDs) should run the named quirk vector")
+	}
+	if !skipped(byID, dir) {
+		t.Error("NoSkip(IDs) must not un-skip other quirks")
 	}
 }

@@ -7,7 +7,6 @@ import { withDefaults, buildClient, Identities } from './config.js'
 import { defaultProvisioner } from './provision.js'
 import { runVector, newResult } from './vector.js'
 import { skipReason, defaultSkip } from './skip.js'
-import { tags, tagsMatching } from './filter.js'
 
 /** A tiny push/pull channel closed when the producers finish. */
 class AsyncQueue {
@@ -73,15 +72,15 @@ export class Runner {
    * work has wound down.
    *
    * @param {object[]} vectors corpus api vectors
-   * @param {{signal?: AbortSignal, skip?: Array<(v: object) => string | undefined>}} [opts]
+   * @param {{signal?: AbortSignal, skip?: Array<(v: object) => string | undefined>, noSkip?: Array<(v: object) => boolean>}} [opts] noSkip filters (see tags/tagsMatching/ids) run matching vectors despite a skip rule
    * @returns {AsyncGenerator<object, void, void>} VectorResult stream
    */
-  async * run (vectors, { signal, skip = [], noSkip = [], noSkipMatching = [] } = {}) {
+  async * run (vectors, { signal, skip = [], noSkip = [] } = {}) {
     // Quirk vectors are skipped by default (they contradict the baseline
-    // vectors); a later noSkip/noSkipMatching unskips them. The default rule
-    // is prepended before the caller's explicit rules.
+    // vectors); a later noSkip filter unskips them. The default rule is
+    // prepended before the caller's explicit rules.
     const rules = [defaultSkip, ...skip]
-    const unskip = [tags(...noSkip), tagsMatching(...noSkipMatching)]
+    const unskip = noSkip
     const ac = new AbortController()
     const onOuter = () => ac.abort(signal.reason)
     signal?.addEventListener('abort', onOuter, { once: true })

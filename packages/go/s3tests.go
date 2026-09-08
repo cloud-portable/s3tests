@@ -99,7 +99,7 @@ func (r *Runner) CorpusVersion() string {
 // wound down.
 func (r *Runner) Run(ctx context.Context, vectors []*s3vectors.Vector, opts ...RunOption) iter.Seq[VectorResult] {
 	// Quirk vectors are skipped by default (they contradict the baseline
-	// vectors); a later NoSkip/NoSkipMatching opts them back in.
+	// vectors); a later NoSkip opts them back in.
 	o := runOptions{}
 	defaultSkip(&o)
 	for _, opt := range opts {

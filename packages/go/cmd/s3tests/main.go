@@ -76,8 +76,9 @@ func run(args []string, stdout, stderr io.Writer) int {
 	skipGroups := fs.String("skip-groups", "", "comma-separated feature groups to skip: not run, but recorded as skipped in results")
 	skipTags := fs.String("skip-tags", "", "comma-separated tags to skip (glob '*' allowed, e.g. 'quirk:*'): not run, but recorded as skipped in results")
 	skipIDs := fs.String("skip-ids", "", "comma-separated vector ids to skip: not run, but recorded as skipped in results (skip-list)")
-	noSkip := fs.String("no-skip", "", "comma-separated exact tags to run despite the default quirk skip (e.g. 'quirk:directory-bucket')")
-	noSkipMatching := fs.String("no-skip-matching", "", "comma-separated tag globs to run despite the default quirk skip (e.g. 'quirk:*' to run every quirk vector)")
+	noSkipGroups := fs.String("no-skip-groups", "", "comma-separated feature groups to run despite the default quirk skip")
+	noSkipTags := fs.String("no-skip-tags", "", "comma-separated tags to run despite the default quirk skip (glob '*' allowed, e.g. 'quirk:*' for every quirk vector)")
+	noSkipIDs := fs.String("no-skip-ids", "", "comma-separated vector ids to run despite the default quirk skip")
 
 	var reports reportFlags
 	fs.Var(&reports, "report", "write a report, <format>[=<path>] (formats: junit, html; default paths report.xml, report.html); repeatable")
@@ -130,7 +131,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "error: no vectors selected")
 		return 2
 	}
-	runOpts := buildSkips(*skipGroups, *skipTags, *skipIDs, *noSkip, *noSkipMatching, properties)
+	runOpts := buildSkips(*skipGroups, *skipTags, *skipIDs, *noSkipGroups, *noSkipTags, *noSkipIDs, properties)
 
 	// Ctrl-C cancels the run; in-flight vectors still tear their buckets down.
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
@@ -276,7 +277,7 @@ func buildFilters(groups, tags, ids, exGroups, exTags, exIDs string) ([]s3tests.
 // filters, skipped vectors stay in the results (and reports) with the flag
 // that skipped them as the reason; the flag values are also stamped into
 // properties.
-func buildSkips(groups, tags, ids, noSkip, noSkipMatching string, properties map[string]string) []s3tests.RunOption {
+func buildSkips(groups, tags, ids, noSkipGroups, noSkipTags, noSkipIDs string, properties map[string]string) []s3tests.RunOption {
 	var opts []s3tests.RunOption
 	add := func(name, val string, f func(...string) s3tests.FilterFunc) {
 		if val == "" {
@@ -289,16 +290,19 @@ func buildSkips(groups, tags, ids, noSkip, noSkipMatching string, properties map
 	// -skip-tags accepts '*' globs (e.g. 'quirk:*'), like -tags/-exclude-tags.
 	add("skip-tags", tags, s3tests.TagsMatching)
 	add("skip-ids", ids, s3tests.IDs)
-	// Quirk vectors are skipped by default; -no-skip / -no-skip-matching opt
-	// matching vectors back in.
-	if noSkip != "" {
-		opts = append(opts, s3tests.NoSkip(strings.Split(noSkip, ",")...))
-		properties["no-skip"] = noSkip
+	// Quirk vectors are skipped by default; the -no-skip-* flags run matching
+	// vectors again. They mirror the -skip-* flags: -no-skip-tags accepts '*'
+	// globs, and each flag un-skips independently.
+	addNoSkip := func(name, val string, f func(...string) s3tests.FilterFunc) {
+		if val == "" {
+			return
+		}
+		opts = append(opts, s3tests.NoSkip(f(strings.Split(val, ",")...)))
+		properties[name] = val
 	}
-	if noSkipMatching != "" {
-		opts = append(opts, s3tests.NoSkipMatching(strings.Split(noSkipMatching, ",")...))
-		properties["no-skip-matching"] = noSkipMatching
-	}
+	addNoSkip("no-skip-groups", noSkipGroups, s3tests.Groups)
+	addNoSkip("no-skip-tags", noSkipTags, s3tests.TagsMatching)
+	addNoSkip("no-skip-ids", noSkipIDs, s3tests.IDs)
 	return opts
 }
 

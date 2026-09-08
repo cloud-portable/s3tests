@@ -13,7 +13,7 @@ from ._config import IDENTITY_MAIN, Config, Identities, build_client, with_defau
 from ._provision import Target, default_provisioner
 from ._run import Runtime
 from ._skip import SkipFunc, skip_reason, default_skip
-from ._filter import tags, tags_matching
+from ._filter import FilterFunc
 from ._vector import new_result, run_vector
 from ._result import VectorResult
 
@@ -53,8 +53,7 @@ class Runner:
         vectors: Iterable[dict],
         *,
         skip: Optional[Iterable[SkipFunc]] = None,
-        no_skip: Optional[Iterable[str]] = None,
-        no_skip_matching: Optional[Iterable[str]] = None,
+        no_skip: Optional[Iterable[FilterFunc]] = None,
         cancel: Optional[threading.Event] = None,
     ) -> Iterator[VectorResult]:
         """Execute the given vectors, yielding one result per vector in
@@ -72,10 +71,10 @@ class Runner:
         """
         vectors = list(vectors)
         # Quirk vectors are skipped by default (they contradict the baseline
-        # vectors); a later no_skip/no_skip_matching unskips them. The default
+        # vectors); a later no_skip filter unskips them. The default
         # rule is prepended before the caller's explicit rules.
         rules = [default_skip, *(skip or [])]
-        unskip = [tags(*(no_skip or [])), tags_matching(*(no_skip_matching or []))]
+        unskip = list(no_skip or [])
         cxl = _Cancel(cancel)
         out: queue.Queue = queue.Queue()
         lock = threading.Lock()

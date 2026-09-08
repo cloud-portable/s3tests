@@ -43,8 +43,8 @@ def skip_reason(rules: Iterable[SkipFunc], vector: Vector) -> Optional[str]:
 
 
 QUIRK_TAG_GLOB = "quirk:*"
-QUIRK_SKIP_REASON = "quirk vector skipped by default (run it with no_skip/no_skip_matching)"
+QUIRK_SKIP_REASON = "quirk vector skipped by default (run it with a no_skip filter)"
 
 # The default skip rule: skip quirk vectors. run() prepends it before the
-# caller's explicit rules; a no_skip / no_skip_matching unskip opts them back in.
+# caller's explicit rules; a no_skip filter opts them back in.
 default_skip: SkipFunc = skip(QUIRK_SKIP_REASON, tags_matching(QUIRK_TAG_GLOB))

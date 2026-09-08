@@ -7,30 +7,30 @@ import (
 // quirkTagGlob matches vectors whose expectation a general-purpose,
 // AWS-tracking target does not reproduce (quirk:not-aws, quirk:directory-bucket,
 // quirk:us-east-1-legacy, …). Such vectors contradict the baseline vectors, so
-// Run skips them by default via defaultSkip; NoSkip / NoSkipMatching opt them
+// Run skips them by default via defaultSkip; NoSkip opts them
 // back in.
 const quirkTagGlob = "quirk:*"
 
-const quirkSkipReason = "quirk vector skipped by default (run it with NoSkip/NoSkipMatching)"
+const quirkSkipReason = "quirk vector skipped by default (run it with NoSkip)"
 
 // defaultSkip is applied before any caller option, so Run skips quirk vectors
-// unless a later NoSkip / NoSkipMatching unskips them.
+// unless a later NoSkip unskips them.
 func defaultSkip(o *runOptions) { Skip(quirkSkipReason, TagsMatching(quirkTagGlob))(o) }
 
 // RunOption adjusts how Run treats the vectors it is given. Options are
-// applied in order; see Skip, SkipFunc, NoSkip and NoSkipMatching.
+// applied in order; see Skip, SkipFunc and NoSkip.
 type RunOption func(*runOptions)
 
 type runOptions struct {
 	skips []func(*s3vectors.Vector) (reason string, skip bool)
 	// unskips force a vector to run even when a skip rule matches it; any
-	// match wins. NoSkip / NoSkipMatching populate them.
+	// match wins. NoSkip populates them.
 	unskips []FilterFunc
 }
 
 // skipReason reports whether a vector is skipped, and why. The first matching
 // Skip / SkipFunc supplies the reason; a vector is then skipped unless a
-// NoSkip / NoSkipMatching unskip matches it.
+// NoSkip unskip matches it.
 func (o *runOptions) skipReason(v *s3vectors.Vector) (string, bool) {
 	reason, skip := "", false
 	for _, s := range o.skips {
@@ -50,18 +50,25 @@ func (o *runOptions) skipReason(v *s3vectors.Vector) (string, bool) {
 	return reason, true
 }
 
-// NoSkip forces vectors carrying any of the given exact tags to run even when a
-// Skip rule (including the default quirk skip) matches them. Example:
-// NoSkip("quirk:directory-bucket") runs the directory-bucket quirk vectors
-// against a target that supports them.
-func NoSkip(tags ...string) RunOption {
-	return func(o *runOptions) { o.unskips = append(o.unskips, Tags(tags...)) }
-}
-
-// NoSkipMatching is NoSkip with glob patterns (see TagsMatching for the
-// syntax). Example: NoSkipMatching("quirk:*") runs every quirk vector.
-func NoSkipMatching(patterns ...string) RunOption {
-	return func(o *runOptions) { o.unskips = append(o.unskips, TagsMatching(patterns...)) }
+// NoSkip forces vectors matching every given filter (logical AND, exactly as
+// Skip selects) to run even when a Skip rule — including the default quirk
+// skip — would skip them. Several NoSkip options compose: a vector matched by
+// any of them runs. Filters are the same ones Skip and ApplyFilters take, so a
+// vector can be un-skipped by tag, id or group. Examples:
+//
+//	NoSkip(s3tests.TagsMatching("quirk:*")) // run every quirk vector
+//	NoSkip(s3tests.IDs("multipart-0013"))   // run one specific vector
+func NoSkip(filters ...FilterFunc) RunOption {
+	return func(o *runOptions) {
+		o.unskips = append(o.unskips, func(v *s3vectors.Vector) bool {
+			for _, f := range filters {
+				if !f(v) {
+					return false
+				}
+			}
+			return true
+		})
+	}
 }
 
 // Skip records vectors matching every given filter (logical AND, exactly as

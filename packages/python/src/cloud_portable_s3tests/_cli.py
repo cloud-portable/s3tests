@@ -59,7 +59,7 @@ selection (comma-separated; --*-tags accept '*' globs, e.g. 'quirk:*'):
   --groups, --tags, --ids                          vectors to run (empty = all)
   --exclude-groups, --exclude-tags, --exclude-ids  drop from the run (absent from results)
   --skip-groups, --skip-tags, --skip-ids           skip: not run, but recorded as skipped in results
-  --no-skip, --no-skip-matching                    run quirk vectors that are skipped by default (exact tags / globs)
+  --no-skip-groups, --no-skip-tags, --no-skip-ids   run vectors despite the default quirk skip
 
 reporting:
   -r, --report <format>[=<path>]  write a report (formats: {", ".join(sorted(REPORTERS))};
@@ -82,7 +82,7 @@ def _build_parser() -> _Parser:
     for name in (
         "endpoint", "access-key", "secret-key", "alt-access-key", "alt-secret-key", "alt-canonical-id",
         "alt-display-name", "groups", "tags", "ids", "exclude-groups", "exclude-tags", "exclude-ids",
-        "skip-groups", "skip-tags", "skip-ids", "no-skip", "no-skip-matching", "target",
+        "skip-groups", "skip-tags", "skip-ids", "no-skip-groups", "no-skip-tags", "no-skip-ids", "target",
     ):
         p.add_argument(f"--{name}")
     p.add_argument("--region", default="us-east-1")
@@ -159,12 +159,7 @@ def run(argv: list[str], stdout: IO[str], stderr: IO[str]) -> int:
         stderr.write("error: no vectors selected\n")
         return 2
     skips = _build_skips(values, properties)
-    no_skip = values["no_skip"].split(",") if values.get("no_skip") else []
-    no_skip_matching = values["no_skip_matching"].split(",") if values.get("no_skip_matching") else []
-    if values.get("no_skip"):
-        properties["no-skip"] = values["no_skip"]
-    if values.get("no_skip_matching"):
-        properties["no-skip-matching"] = values["no_skip_matching"]
+    no_skip = _build_no_skips(values, properties)
 
     # Ctrl-C cancels the run; in-flight vectors still tear their buckets down.
     # A second interrupt hard-exits.
@@ -189,7 +184,7 @@ def run(argv: list[str], stdout: IO[str], stderr: IO[str]) -> int:
     results: list[VectorResult] = []
     started = time.perf_counter_ns()
     try:
-        for res in runner.run(selected, skip=skips, no_skip=no_skip, no_skip_matching=no_skip_matching, cancel=cancel):
+        for res in runner.run(selected, skip=skips, no_skip=no_skip, cancel=cancel):
             results.append(res)
             counts[res.outcome] += 1
             if res.runner_error:
@@ -274,6 +269,20 @@ def _build_skips(values: dict, properties: dict[str, str]) -> list:
             rules.append(skip(f"skipped by --{name}", ctor(*val.split(","))))
             properties[name] = val
     return rules
+
+
+def _build_no_skips(values: dict, properties: dict[str, str]) -> list:
+    """The --no-skip-* flags as unskip filters for run(): they run vectors
+    again despite a skip rule (including the default quirk skip). They mirror
+    the --skip-* flags; --no-skip-tags accepts '*' globs. Each flag un-skips
+    independently."""
+    filters = []
+    for name, ctor in (("no-skip-groups", groups), ("no-skip-tags", tags_matching), ("no-skip-ids", ids)):
+        val = values[name.replace("-", "_")]
+        if val:
+            filters.append(ctor(*val.split(",")))
+            properties[name] = val
+    return filters
 
 
 _ANSI = {"reset": "\x1b[0m", "green": "\x1b[32m", "red": "\x1b[31m", "amber": "\x1b[33m", "violet": "\x1b[35m", "dim": "\x1b[2m"}
