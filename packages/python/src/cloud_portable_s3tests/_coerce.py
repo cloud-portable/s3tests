@@ -10,6 +10,7 @@ from __future__ import annotations
 import base64
 import json
 import re
+import urllib.parse
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from typing import Any, Optional
@@ -34,12 +35,14 @@ def build_input(operation_model, params: dict[str, Any], resolve: Optional[Resol
             body = content_value(value, resolve)
             return body
         if key == "CopySource" and isinstance(value, dict) and isinstance(value.get("Bucket"), str) and isinstance(value.get("Key"), str):
-            # Hand boto3 the object form it accepts natively; it percent-encodes
-            # the key correctly (spaces, "?", ...), which composing a string here
-            # could not (a "?" in the key is ambiguous with the versionId query).
-            src = {"Bucket": value["Bucket"], "Key": value["Key"]}
+            # Compose the copy-source header ourselves, percent-encoding the key
+            # ("/" preserved) so special characters (spaces, "?", ...) are
+            # unambiguous. The runner unregisters botocore's copy-source quoting
+            # (see _config._tune_events), so this string goes out verbatim — the
+            # same approach as the Go and JS runners.
+            src = value["Bucket"] + "/" + urllib.parse.quote(value["Key"], safe="/")
             if isinstance(value.get("VersionId"), str) and value["VersionId"] != "":
-                src["VersionId"] = value["VersionId"]
+                src += "?versionId=" + value["VersionId"]
             return src
         t = member_shape.type_name if member_shape is not None else None
         if t == "timestamp":

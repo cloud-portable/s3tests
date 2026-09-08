@@ -12,7 +12,8 @@ from cloud_portable_s3vectors import manifest
 from ._config import IDENTITY_MAIN, Config, Identities, build_client, with_defaults
 from ._provision import Target, default_provisioner
 from ._run import Runtime
-from ._skip import SkipFunc, skip_reason
+from ._skip import SkipFunc, skip_reason, default_skip
+from ._filter import tags, tags_matching
 from ._vector import new_result, run_vector
 from ._result import VectorResult
 
@@ -52,6 +53,8 @@ class Runner:
         vectors: Iterable[dict],
         *,
         skip: Optional[Iterable[SkipFunc]] = None,
+        no_skip: Optional[Iterable[str]] = None,
+        no_skip_matching: Optional[Iterable[str]] = None,
         cancel: Optional[threading.Event] = None,
     ) -> Iterator[VectorResult]:
         """Execute the given vectors, yielding one result per vector in
@@ -68,7 +71,11 @@ class Runner:
         in-flight work has wound down.
         """
         vectors = list(vectors)
-        rules = list(skip or [])
+        # Quirk vectors are skipped by default (they contradict the baseline
+        # vectors); a later no_skip/no_skip_matching unskips them. The default
+        # rule is prepended before the caller's explicit rules.
+        rules = [default_skip, *(skip or [])]
+        unskip = [tags(*(no_skip or [])), tags_matching(*(no_skip_matching or []))]
         cxl = _Cancel(cancel)
         out: queue.Queue = queue.Queue()
         lock = threading.Lock()
@@ -85,7 +92,8 @@ class Runner:
                     if i >= len(vectors) or cxl.is_set():
                         return
                     reason = skip_reason(rules, vectors[i])
-                    res = run_vector(self.rt, vectors[i], cxl) if reason is None else new_result(vectors[i], "skipped", reason)
+                    skipped = reason is not None and not any(u(vectors[i]) for u in unskip)
+                    res = new_result(vectors[i], "skipped", reason) if skipped else run_vector(self.rt, vectors[i], cxl)
                     if not cxl.is_set():
                         out.put(res)
             finally:

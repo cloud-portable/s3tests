@@ -91,7 +91,7 @@ class TestDispatch(unittest.TestCase):
             call(c, "CopyObject", {"Bucket": "b", "Key": "k", "CopySource": "b/my-obj%3Ftest%26data"}, None)
             self.assertEqual(srv.requests[-1]["headers"]["x-amz-copy-source"], "b/my-obj%3Ftest%26data")
             call(c, "CopyObject", {"Bucket": "b", "Key": "k", "CopySource": {"Bucket": "b", "Key": "a b", "VersionId": "v1"}}, None)
-            self.assertEqual(srv.requests[-1]["headers"]["x-amz-copy-source"], "b/a b?versionId=v1")
+            self.assertEqual(srv.requests[-1]["headers"]["x-amz-copy-source"], "b/a%20b?versionId=v1")
             call(c, "ListObjects", {"Bucket": "b"}, None)
             self.assertNotIn("encoding-type", srv.requests[-1]["url"])
         finally:

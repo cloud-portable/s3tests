@@ -98,7 +98,10 @@ func (r *Runner) CorpusVersion() string {
 // incomplete. The iterator does not return until all in-flight work has
 // wound down.
 func (r *Runner) Run(ctx context.Context, vectors []*s3vectors.Vector, opts ...RunOption) iter.Seq[VectorResult] {
-	var o runOptions
+	// Quirk vectors are skipped by default (they contradict the baseline
+	// vectors); a later NoSkip/NoSkipMatching opts them back in.
+	o := runOptions{}
+	defaultSkip(&o)
 	for _, opt := range opts {
 		opt(&o)
 	}

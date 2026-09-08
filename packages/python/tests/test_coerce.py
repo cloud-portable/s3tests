@@ -37,11 +37,12 @@ class TestCoerce(unittest.TestCase):
         _, plain = coerce("UploadPart", {"Body": "hello"})
         self.assertEqual(plain, b"hello")
 
-    def test_copy_source_object_form_passes_dict_to_boto3(self):
-        # The object form is handed to boto3 natively so it percent-encodes the
-        # key correctly; a plain string is passed through unchanged.
-        self.assertEqual(coerce("CopyObject", {"CopySource": {"Bucket": "b", "Key": "src"}})[0]["CopySource"], {"Bucket": "b", "Key": "src"})
-        self.assertEqual(coerce("CopyObject", {"CopySource": {"Bucket": "b", "Key": "src", "VersionId": "v1"}})[0]["CopySource"], {"Bucket": "b", "Key": "src", "VersionId": "v1"})
+    def test_copy_source_object_form_composes_encoded_string(self):
+        # The object form is composed into a percent-encoded header string
+        # ("/" preserved); a plain string is passed through unchanged.
+        self.assertEqual(coerce("CopyObject", {"CopySource": {"Bucket": "b", "Key": "src"}})[0]["CopySource"], "b/src")
+        self.assertEqual(coerce("CopyObject", {"CopySource": {"Bucket": "b", "Key": "a b", "VersionId": "v1"}})[0]["CopySource"], "b/a%20b?versionId=v1")
+        self.assertEqual(coerce("CopyObject", {"CopySource": {"Bucket": "b", "Key": "?versionId"}})[0]["CopySource"], "b/%3FversionId")
         self.assertEqual(coerce("CopyObject", {"CopySource": "b/plain"})[0]["CopySource"], "b/plain")
 
     def test_sse_c_keys_stay_base64_strings(self):

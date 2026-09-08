@@ -6,7 +6,8 @@ import { S3Client } from '@aws-sdk/client-s3'
 import { withDefaults, buildClient, Identities } from './config.js'
 import { defaultProvisioner } from './provision.js'
 import { runVector, newResult } from './vector.js'
-import { skipReason } from './skip.js'
+import { skipReason, defaultSkip } from './skip.js'
+import { tags, tagsMatching } from './filter.js'
 
 /** A tiny push/pull channel closed when the producers finish. */
 class AsyncQueue {
@@ -75,7 +76,12 @@ export class Runner {
    * @param {{signal?: AbortSignal, skip?: Array<(v: object) => string | undefined>}} [opts]
    * @returns {AsyncGenerator<object, void, void>} VectorResult stream
    */
-  async * run (vectors, { signal, skip = [] } = {}) {
+  async * run (vectors, { signal, skip = [], noSkip = [], noSkipMatching = [] } = {}) {
+    // Quirk vectors are skipped by default (they contradict the baseline
+    // vectors); a later noSkip/noSkipMatching unskips them. The default rule
+    // is prepended before the caller's explicit rules.
+    const rules = [defaultSkip, ...skip]
+    const unskip = [tags(...noSkip), tagsMatching(...noSkipMatching)]
     const ac = new AbortController()
     const onOuter = () => ac.abort(signal.reason)
     signal?.addEventListener('abort', onOuter, { once: true })
@@ -89,8 +95,9 @@ export class Runner {
         while (true) {
           const i = next++
           if (i >= vectors.length || ac.signal.aborted) return
-          const reason = skipReason(skip, vectors[i])
-          const result = reason === undefined
+          const reason = skipReason(rules, vectors[i])
+          const skipped = reason !== undefined && !unskip.some((u) => u(vectors[i]))
+          const result = !skipped
             ? await runVector(this.rt, vectors[i], ac.signal)
             : newResult(vectors[i], 'skipped', reason)
           if (!ac.signal.aborted) queue.push(result)

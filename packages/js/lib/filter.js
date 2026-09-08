@@ -38,7 +38,7 @@ export const excludeIds = (...i) => (v) => !i.includes(v.id)
  * characters, including empty); every other character is literal. Kept
  * identical across the go/js/python runners.
  */
-const globMatch = (pattern, s) => {
+export const globMatch = (pattern, s) => {
   const parts = pattern.split('*')
   if (parts.length === 1) return s === pattern // no wildcard: exact match
   if (!s.startsWith(parts[0])) return false

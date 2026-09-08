@@ -59,6 +59,7 @@ selection (comma-separated; --*-tags accept '*' globs, e.g. 'quirk:*'):
   --groups, --tags, --ids                          vectors to run (empty = all)
   --exclude-groups, --exclude-tags, --exclude-ids  drop from the run (absent from results)
   --skip-groups, --skip-tags, --skip-ids           skip: not run, but recorded as skipped in results
+  --no-skip, --no-skip-matching                    run quirk vectors that are skipped by default (exact tags / globs)
 
 reporting:
   -r, --report <format>[=<path>]  write a report (formats: {", ".join(sorted(REPORTERS))};
@@ -81,7 +82,7 @@ def _build_parser() -> _Parser:
     for name in (
         "endpoint", "access-key", "secret-key", "alt-access-key", "alt-secret-key", "alt-canonical-id",
         "alt-display-name", "groups", "tags", "ids", "exclude-groups", "exclude-tags", "exclude-ids",
-        "skip-groups", "skip-tags", "skip-ids", "target",
+        "skip-groups", "skip-tags", "skip-ids", "no-skip", "no-skip-matching", "target",
     ):
         p.add_argument(f"--{name}")
     p.add_argument("--region", default="us-east-1")
@@ -158,6 +159,12 @@ def run(argv: list[str], stdout: IO[str], stderr: IO[str]) -> int:
         stderr.write("error: no vectors selected\n")
         return 2
     skips = _build_skips(values, properties)
+    no_skip = values["no_skip"].split(",") if values.get("no_skip") else []
+    no_skip_matching = values["no_skip_matching"].split(",") if values.get("no_skip_matching") else []
+    if values.get("no_skip"):
+        properties["no-skip"] = values["no_skip"]
+    if values.get("no_skip_matching"):
+        properties["no-skip-matching"] = values["no_skip_matching"]
 
     # Ctrl-C cancels the run; in-flight vectors still tear their buckets down.
     # A second interrupt hard-exits.
@@ -182,7 +189,7 @@ def run(argv: list[str], stdout: IO[str], stderr: IO[str]) -> int:
     results: list[VectorResult] = []
     started = time.perf_counter_ns()
     try:
-        for res in runner.run(selected, skip=skips, cancel=cancel):
+        for res in runner.run(selected, skip=skips, no_skip=no_skip, no_skip_matching=no_skip_matching, cancel=cancel):
             results.append(res)
             counts[res.outcome] += 1
             if res.runner_error:

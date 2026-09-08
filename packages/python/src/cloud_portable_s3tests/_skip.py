@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from typing import Callable, Iterable, Optional
 
-from ._filter import FilterFunc, Vector
+from ._filter import FilterFunc, Vector, tags_matching
 
 SkipFunc = Callable[[Vector], Optional[str]]
 
@@ -40,3 +40,11 @@ def skip_reason(rules: Iterable[SkipFunc], vector: Vector) -> Optional[str]:
         if isinstance(reason, str):
             return reason
     return None
+
+
+QUIRK_TAG_GLOB = "quirk:*"
+QUIRK_SKIP_REASON = "quirk vector skipped by default (run it with no_skip/no_skip_matching)"
+
+# The default skip rule: skip quirk vectors. run() prepends it before the
+# caller's explicit rules; a no_skip / no_skip_matching unskip opts them back in.
+default_skip: SkipFunc = skip(QUIRK_SKIP_REASON, tags_matching(QUIRK_TAG_GLOB))

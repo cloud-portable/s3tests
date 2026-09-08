@@ -41,3 +41,23 @@ export function skipReason (rules, vector) {
   }
   return undefined
 }
+
+import { tagsMatching } from './filter.js'
+
+/**
+ * Glob matching a vector whose expectation a general-purpose AWS-tracking
+ * target does not reproduce (quirk:not-aws, quirk:directory-bucket,
+ * quirk:us-east-1-legacy, …). Such vectors contradict the baseline vectors, so
+ * run() skips them by default via defaultSkip; noSkip / noSkipMatching opt them
+ * back in.
+ */
+export const quirkTagGlob = 'quirk:*'
+
+export const quirkSkipReason = 'quirk vector skipped by default (run it with noSkip/noSkipMatching)'
+
+/**
+ * The default skip rule: skip quirk vectors. run() prepends it before the
+ * caller's explicit rules; a noSkip / noSkipMatching unskip opts them back in.
+ * @type {(v: object) => string | undefined}
+ */
+export const defaultSkip = skip(quirkSkipReason, tagsMatching(quirkTagGlob))
