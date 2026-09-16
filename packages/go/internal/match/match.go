@@ -1,6 +1,6 @@
 // Package match implements the vector matcher semantics: scalar equality,
 // recursive subset objects, exact-length ordered arrays, assertion objects
-// ($exists/$absent/$eq/$ne/$matches/$length/$contains), plus the header,
+// ($exists/$absent/$eq/$ne/$matches/$length/$contains/$containsAll), plus the header,
 // error and body (content-descriptor / digest) expectation forms.
 package match
 
@@ -144,6 +144,28 @@ func assertion(path string, m map[string]any, actual any, present bool) []Mismat
 			}
 			if !found {
 				out = append(out, Mismatch{Path: path, Expected: "some element matching " + render(arg), Actual: fmt.Sprintf("no match among %d element(s)", len(aa))})
+			}
+		case "$containsAll":
+			// Every listed matcher must match some element; matchers are
+			// independent, so two of them may match the same element. Pair
+			// with $length for set equality.
+			aa, ok := actual.([]any)
+			args, argsOK := arg.([]any)
+			if !present || !ok || !argsOK {
+				out = append(out, Mismatch{Path: path, Expected: "array containing all of " + render(arg), Actual: presence(actual, present)})
+				continue
+			}
+			for _, want := range args {
+				found := false
+				for _, el := range aa {
+					if len(Value(path, want, el, true)) == 0 {
+						found = true
+						break
+					}
+				}
+				if !found {
+					out = append(out, Mismatch{Path: path, Expected: "some element matching " + render(want), Actual: fmt.Sprintf("no match among %d element(s)", len(aa))})
+				}
 			}
 		default:
 			out = append(out, Mismatch{Path: path, Expected: "known assertion", Actual: "unknown assertion operator " + op})

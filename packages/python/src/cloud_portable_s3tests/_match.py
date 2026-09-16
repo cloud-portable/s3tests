@@ -1,6 +1,7 @@
 """Matcher engine implementing the vector matcher semantics: scalar equality,
 recursive subset objects, exact-length ordered arrays, assertion objects
-(``$exists``/``$absent``/``$eq``/``$ne``/``$matches``/``$length``/``$contains``),
+(``$exists``/``$absent``/``$eq``/``$ne``/``$matches``/``$length``/``$contains``/
+``$containsAll``),
 plus the header, error and body (content-descriptor / digest) expectation
 forms."""
 
@@ -121,6 +122,19 @@ def _assertion(path: str, m: dict, actual: Any, present: bool) -> list[Mismatch]
                 out.append(
                     Mismatch(path, "some element matching " + render(arg), f"no match among {len(actual)} element(s)")
                 )
+        elif op == "$containsAll":
+            # Every listed matcher must match some element; matchers are
+            # independent, so two of them may match the same element. Pair
+            # with $length for set equality.
+            if not present or not isinstance(actual, list) or not isinstance(arg, list):
+                out.append(Mismatch(path, "array containing all of " + render(arg), _presence(actual, present)))
+                continue
+            for want in arg:
+                found = any(len(match_value(path, want, el, True)) == 0 for el in actual)
+                if not found:
+                    out.append(
+                        Mismatch(path, "some element matching " + render(want), f"no match among {len(actual)} element(s)")
+                    )
         else:
             out.append(Mismatch(path, "known assertion", "unknown assertion operator " + op))
     return out
