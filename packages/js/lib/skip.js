@@ -42,7 +42,7 @@ export function skipReason (rules, vector) {
   return undefined
 }
 
-import { tagsMatching } from './filter.js'
+import { tags, tagsMatching } from './filter.js'
 
 /**
  * Glob matching a vector whose expectation a general-purpose AWS-tracking
@@ -56,8 +56,20 @@ export const quirkTagGlob = 'quirk:*'
 export const quirkSkipReason = 'quirk vector skipped by default (run it with a noSkip filter)'
 
 /**
- * The default skip rule: skip quirk vectors. run() prepends it before the
- * caller's explicit rules; a noSkip filter opts them back in.
- * @type {(v: object) => string | undefined}
+ * Tag marking a vector whose data runs to gigabytes (the 5 GiB copy-source
+ * limit needs a source over 5 GiB). Executing one generates and uploads that
+ * much, so run() skips them by default; a noSkip filter opts them back in.
  */
-export const defaultSkip = skip(quirkSkipReason, tagsMatching(quirkTagGlob))
+export const largeTag = 'large'
+
+export const largeSkipReason = 'large vector skipped by default (generates gigabytes; run it with a noSkip filter)'
+
+/**
+ * The default skip rules: skip quirk and large vectors. run() prepends them
+ * before the caller's explicit rules; a noSkip filter opts them back in.
+ * @type {Array<(v: object) => string | undefined>}
+ */
+export const defaultSkips = [
+  skip(quirkSkipReason, tagsMatching(quirkTagGlob)),
+  skip(largeSkipReason, tags(largeTag))
+]

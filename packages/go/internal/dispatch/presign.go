@@ -22,7 +22,9 @@ func PresignSupported(name string) bool {
 	return ok
 }
 
-// Presign mints a presigned request for the named operation. The body bytes
+// Presign mints a presigned request for the named operation. It always
+// materializes the body — the caller sends it itself — so it does not take a
+// stream resolver. The body bytes
 // (for presigned PUTs) are returned separately: S3 presigned requests use
 // UNSIGNED-PAYLOAD, and the caller sends the body itself when executing.
 func Presign(ctx context.Context, pc *s3.PresignClient, name string, params map[string]json.RawMessage, resolve match.ContentResolver, expires time.Duration) (*v4.PresignedHTTPRequest, []byte, error) {
@@ -30,7 +32,7 @@ func Presign(ctx context.Context, pc *s3.PresignClient, name string, params map[
 	if !m.IsValid() {
 		return nil, nil, fmt.Errorf("operation %s cannot be presigned by aws-sdk-go-v2 (no Presign%s method)", name, name)
 	}
-	in, body, err := BuildInput(name, params, resolve)
+	in, body, err := BuildInput(name, params, Resolver{Bytes: resolve})
 	if err != nil {
 		return nil, nil, err
 	}

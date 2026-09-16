@@ -58,10 +58,38 @@ func InputType(name string) (reflect.Type, error) {
 	return m.Type.In(2).Elem(), nil
 }
 
+// Resolver supplies dataset content to the decoder.
+//
+// Bytes is required. Stream is optional: when set, a body that is a bare
+// {"$data": name} reference is handed to the SDK as a stream instead of being
+// materialized, so a multi-gigabyte body costs one buffer rather than its own
+// size. The SDK derives Content-Length and the SigV4 payload hash by seeking,
+// so the stream must be an io.Seeker and is read twice. A Stream that returns a
+// nil reader means "materialize this one after all", which is how small
+// datasets stay on the cached-bytes path.
+//
+// Everything else — string params, expectations, presigned bodies — resolves
+// through Bytes.
+type Resolver struct {
+	Bytes  match.ContentResolver
+	Stream func(name string) (io.ReadSeeker, int64, error)
+}
+
+// dataRef reports the dataset name of a bare {"$data": name} descriptor.
+func dataRef(j any) (string, bool) {
+	m, ok := j.(map[string]any)
+	if !ok || len(m) != 1 {
+		return "", false
+	}
+	name, ok := m["$data"].(string)
+	return name, ok
+}
+
 // BuildInput decodes interpolated vector params into a new SDK input struct,
-// returning the *XInput value and, when a Body param was set, its raw bytes
-// (needed by the presign path, which sends the body itself).
-func BuildInput(name string, params map[string]json.RawMessage, resolve match.ContentResolver) (any, []byte, error) {
+// returning the *XInput value and, when a Body param was materialized, its raw
+// bytes (needed by the presign path, which sends the body itself). A streamed
+// body returns nil bytes.
+func BuildInput(name string, params map[string]json.RawMessage, resolve Resolver) (any, []byte, error) {
 	t, err := InputType(name)
 	if err != nil {
 		return nil, nil, err
@@ -93,16 +121,30 @@ var (
 // shapes encoding/json cannot: streaming bodies, unions, timestamps in the
 // corpus's several formats, and content descriptors in string params.
 type decoder struct {
-	resolve match.ContentResolver
-	body    []byte // bytes behind an io.Reader Body param, if one was set
+	resolve Resolver
+	body    []byte // bytes behind an io.Reader Body param, when materialized
 }
 
 func (d *decoder) value(f reflect.Value, j any, name string) error {
 	t := f.Type()
 	switch {
 	case t == readerType:
-		// Streaming body: the value is a content descriptor.
-		b, err := match.ContentValue(j, d.resolve)
+		// Streaming body: the value is a content descriptor. A bare
+		// {"$data": name} can be sent straight from the generator; every other
+		// form (inline string, $base64) has its bytes already.
+		if d.resolve.Stream != nil {
+			if name, ok := dataRef(j); ok {
+				rs, _, err := d.resolve.Stream(name)
+				if err != nil {
+					return err
+				}
+				if rs != nil {
+					f.Set(reflect.ValueOf(rs))
+					return nil
+				}
+			}
+		}
+		b, err := match.ContentValue(j, d.resolve.Bytes)
 		if err != nil {
 			return err
 		}
@@ -278,7 +320,7 @@ func (d *decoder) objectIntoString(f reflect.Value, obj map[string]any, name str
 			return nil
 		}
 	}
-	if b, err := match.ContentValue(obj, d.resolve); err == nil {
+	if b, err := match.ContentValue(obj, d.resolve.Bytes); err == nil {
 		f.SetString(base64.StdEncoding.EncodeToString(b))
 		return nil
 	}
@@ -299,7 +341,7 @@ func parseTime(s string) (time.Time, error) {
 // Call executes one operation. A returned error is a *runner* problem
 // (unsupported operation, undecodable params); server-side failures are
 // reported inside Result.
-func Call(ctx context.Context, client *s3.Client, name string, params map[string]json.RawMessage, resolve match.ContentResolver, region string) (*Result, error) {
+func Call(ctx context.Context, client *s3.Client, name string, params map[string]json.RawMessage, resolve Resolver, region string) (*Result, error) {
 	m := reflect.ValueOf(client).MethodByName(name)
 	if !m.IsValid() {
 		return nil, fmt.Errorf("operation %s is not supported by aws-sdk-go-v2 service/s3", name)

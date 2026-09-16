@@ -76,9 +76,9 @@ func run(args []string, stdout, stderr io.Writer) int {
 	skipGroups := fs.String("skip-groups", "", "comma-separated feature groups to skip: not run, but recorded as skipped in results")
 	skipTags := fs.String("skip-tags", "", "comma-separated tags to skip (glob '*' allowed, e.g. 'quirk:*'): not run, but recorded as skipped in results")
 	skipIDs := fs.String("skip-ids", "", "comma-separated vector ids to skip: not run, but recorded as skipped in results (skip-list)")
-	noSkipGroups := fs.String("no-skip-groups", "", "comma-separated feature groups to run despite the default quirk skip")
-	noSkipTags := fs.String("no-skip-tags", "", "comma-separated tags to run despite the default quirk skip (glob '*' allowed, e.g. 'quirk:*' for every quirk vector)")
-	noSkipIDs := fs.String("no-skip-ids", "", "comma-separated vector ids to run despite the default quirk skip")
+	noSkipGroups := fs.String("no-skip-groups", "", "comma-separated feature groups to run despite the default quirk/large skips")
+	noSkipTags := fs.String("no-skip-tags", "", "comma-separated tags to run despite the default quirk/large skips (glob '*' allowed, e.g. 'quirk:*' for every quirk vector, 'large' for gigabyte-scale ones)")
+	noSkipIDs := fs.String("no-skip-ids", "", "comma-separated vector ids to run despite the default quirk/large skips")
 
 	var reports reportFlags
 	fs.Var(&reports, "report", "write a report, <format>[=<path>] (formats: junit, html; default paths report.xml, report.html); repeatable")

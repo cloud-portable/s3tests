@@ -59,7 +59,7 @@ selection (comma-separated; --*-tags accept '*' globs, e.g. 'quirk:*'):
   --groups, --tags, --ids                          vectors to run (empty = all)
   --exclude-groups, --exclude-tags, --exclude-ids  drop from the run (absent from results)
   --skip-groups, --skip-tags, --skip-ids           skip: not run, but recorded as skipped in results
-  --no-skip-groups, --no-skip-tags, --no-skip-ids   run vectors despite the default quirk skip
+  --no-skip-groups, --no-skip-tags, --no-skip-ids   run vectors despite the default quirk/large skips
 
 reporting:
   -r, --report <format>[=<path>]  write a report (formats: {", ".join(sorted(REPORTERS))};
@@ -273,7 +273,7 @@ def _build_skips(values: dict, properties: dict[str, str]) -> list:
 
 def _build_no_skips(values: dict, properties: dict[str, str]) -> list:
     """The --no-skip-* flags as unskip filters for run(): they run vectors
-    again despite a skip rule (including the default quirk skip). They mirror
+    again despite a skip rule (including the default quirk/large skips). They mirror
     the --skip-* flags; --no-skip-tags accepts '*' globs. Each flag un-skips
     independently."""
     filters = []

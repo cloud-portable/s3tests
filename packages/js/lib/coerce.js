@@ -24,13 +24,36 @@ const STRINGIFY_KEYS = new Set(['PartNumberMarker'])
  * Build a v3 command input from interpolated vector params.
  * @param {object} params
  * @param {(name: string) => Uint8Array} resolveData $data resolver
- * @returns {{input: object, body: Uint8Array | null}} body = held-aside Body
- *   bytes (the presign path sends them itself)
+ * @param {(name: string) => ({stream: import('node:stream').Readable, length: number} | null)} [resolveStream]
+ *   optional: when it returns a stream for a bare {"$data": name} Body, the
+ *   body is handed to the SDK as a stream instead of being materialized, so a
+ *   multi-gigabyte body costs one chunk rather than its own size. Returning
+ *   null means "materialize this one", which is how small datasets stay on the
+ *   cached-bytes path. Everything else always resolves through resolveData.
+ * @returns {{input: object, body: Uint8Array | null, contentLength: number | null}}
+ *   body = held-aside Body bytes (the presign path sends them itself), null
+ *   when the body was streamed
  */
-export function buildInput (params, resolveData) {
+/** The dataset name of a bare {"$data": name} descriptor, else null. */
+function dataRef (value) {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return null
+  if (Object.keys(value).length !== 1 || typeof value.$data !== 'string') return null
+  return value.$data
+}
+
+export function buildInput (params, resolveData, resolveStream) {
   let body = null
+  let contentLength = null
   const walk = (value, key) => {
     if (key === 'Body') {
+      const name = dataRef(value)
+      if (resolveStream && name !== null) {
+        const s = resolveStream(name)
+        if (s) {
+          contentLength = s.length
+          return s.stream
+        }
+      }
       body = contentValue(value, resolveData)
       return body
     }
@@ -63,7 +86,10 @@ export function buildInput (params, resolveData) {
   }
   const input = {}
   for (const [k, v] of Object.entries(params)) input[k] = walk(v, k)
-  return { input, body }
+  // A streamed body has no length the SDK can discover, so supply it — unless
+  // the vector set ContentLength itself.
+  if (contentLength !== null && input.ContentLength === undefined) input.ContentLength = contentLength
+  return { input, body, contentLength }
 }
 
 const RFC3339 = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(\.\d+)?(Z|[+-]\d{2}:\d{2})$/

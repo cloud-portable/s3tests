@@ -24,6 +24,30 @@ func contentFromRaw(raw json.RawMessage, cache *vdata.Cache) ([]byte, error) {
 	return match.Content(raw, cache.Bytes)
 }
 
+// resolver supplies dataset content to the SDK dispatch. Datasets above
+// vdata.StreamThreshold are handed over as a seekable stream so the request body
+// never has to be held in memory; everything smaller stays on the cached-bytes
+// path, which is cheaper when the same dataset is referenced several times.
+func (vr *vectorRun) resolver() dispatch.Resolver {
+	return dispatch.Resolver{
+		Bytes: vr.cache.Bytes,
+		Stream: func(name string) (io.ReadSeeker, int64, error) {
+			n, err := vr.cache.Size(name)
+			if err != nil {
+				return nil, 0, err
+			}
+			if n <= vdata.StreamThreshold {
+				return nil, 0, nil // small enough to materialize and cache
+			}
+			r, err := vr.cache.Reader(name)
+			if err != nil {
+				return nil, 0, err
+			}
+			return r, n, nil
+		},
+	}
+}
+
 func (vr *vectorRun) runOperationStep(ctx context.Context, src *s3vectors.OperationStep, sr *StepResult) {
 	var op s3vectors.OperationStep
 	if err := vr.interpolateInto(src, &op); err != nil {
@@ -47,7 +71,7 @@ func (vr *vectorRun) runOperationStep(ctx context.Context, src *s3vectors.Operat
 		vr.runnerFail(sr, err)
 		return
 	}
-	res, err := dispatch.Call(ctx, client, op.Name, op.Params, vr.cache.Bytes, vr.runner.cfg.Region)
+	res, err := dispatch.Call(ctx, client, op.Name, op.Params, vr.resolver(), vr.runner.cfg.Region)
 	if err != nil {
 		vr.runnerFail(sr, err)
 		return

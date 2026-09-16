@@ -11,9 +11,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"strconv"
 	"testing"
 
 	s3vectors "github.com/cloud-portable/s3vectors/packages/go"
+	"github.com/cloud-portable/s3vectors/packages/go/datagen"
 
 	"github.com/cloud-portable/s3tests/packages/go/internal/dispatch"
 	"github.com/cloud-portable/s3tests/packages/go/internal/interp"
@@ -77,11 +79,12 @@ func smokeVector(v *s3vectors.Vector) []string {
 	}
 
 	cache := vdata.New(v.Data)
+	resolveBytes, resolveDerived := smokeData(cache, v.Data)
 	scope := &interp.Scope{
 		Env:  map[string]string{"endpoint": "http://smoke.invalid:9000", "region": "us-east-1"},
 		Res:  map[string]map[string]string{},
 		Cap:  map[string]string{},
-		Data: cache.Derived,
+		Data: resolveDerived,
 	}
 
 	// Register prerequisite resource attributes exactly as the runner would.
@@ -98,7 +101,7 @@ func smokeVector(v *s3vectors.Vector) []string {
 				raw, err := scope.Raw(p.Object.Body)
 				if err != nil {
 					fail("object prerequisite %s body: %v", p.Object.Handle, err)
-				} else if _, err := match.Content(raw, cache.Bytes); err != nil {
+				} else if _, err := match.Content(raw, resolveBytes); err != nil {
 					fail("object prerequisite %s body: %v", p.Object.Handle, err)
 				}
 			}
@@ -143,13 +146,13 @@ func smokeVector(v *s3vectors.Vector) []string {
 				fail("step %d: %v", stepNo, err)
 				continue
 			}
-			if _, _, err := dispatch.BuildInput(op.Name, op.Params, cache.Bytes); err != nil {
+			if _, _, err := dispatch.BuildInput(op.Name, op.Params, dispatch.Resolver{Bytes: resolveBytes}); err != nil {
 				fail("step %d: %v", stepNo, err)
 			}
 			if op.Presign != nil && !dispatch.PresignSupported(op.Name) {
 				fail("step %d: operation %s cannot be presigned", stepNo, op.Name)
 			}
-			smokeExpect(op.Expect, cache, fail, stepNo)
+			smokeExpect(op.Expect, resolveBytes, fail, stepNo)
 			smokeCapture(op.Capture, fail, stepNo)
 		case step.HTTP != nil:
 			src := step.HTTP
@@ -169,11 +172,11 @@ func smokeVector(v *s3vectors.Vector) []string {
 				continue
 			}
 			if len(st.Body) > 0 {
-				if _, err := match.Content(st.Body, cache.Bytes); err != nil {
+				if _, err := match.Content(st.Body, resolveBytes); err != nil {
 					fail("step %d: body: %v", stepNo, err)
 				}
 			}
-			smokeExpect(st.Expect, cache, fail, stepNo)
+			smokeExpect(st.Expect, resolveBytes, fail, stepNo)
 			smokeCapture(st.Capture, fail, stepNo)
 		default:
 			fail("step %d has no union key", stepNo)
@@ -190,7 +193,7 @@ func smokeCapture(spec map[string]string, fail func(string, ...any), stepNo int)
 	}
 }
 
-func smokeExpect(exp *s3vectors.Expect, cache *vdata.Cache, fail func(string, ...any), stepNo int) {
+func smokeExpect(exp *s3vectors.Expect, resolveBytes match.ContentResolver, fail func(string, ...any), stepNo int) {
 	if exp == nil {
 		return
 	}
@@ -224,7 +227,7 @@ func smokeExpect(exp *s3vectors.Expect, cache *vdata.Cache, fail func(string, ..
 				return
 			}
 		}
-		if _, err := match.ContentValue(v, cache.Bytes); err != nil {
+		if _, err := match.ContentValue(v, resolveBytes); err != nil {
 			fail("step %d: expect.body: %v", stepNo, err)
 		}
 	}
@@ -251,4 +254,44 @@ func compileMatchers(v any, onErr func(error)) {
 			compileMatchers(e, onErr)
 		}
 	}
+}
+
+// smokeBytesCap bounds what the dry run will materialize.
+const smokeBytesCap = 8 << 20
+
+// smokeData resolves dataset references for the dry run. The dry run proves a
+// vector's references resolve and its inputs decode; it never compares content
+// against a server, so for a dataset above smokeBytesCap the declaration alone
+// is checked. Materializing copy-0049's 5 GiB source, or hashing it once per
+// derived field, would cost gigabytes and minutes to prove what the spec
+// already states — and the corpus package's own suite covers the generator.
+func smokeData(cache *vdata.Cache, data map[string]s3vectors.DataSpec) (match.ContentResolver, func(string, string) (string, error)) {
+	oversized := func(name string) (int64, bool, error) {
+		n, err := datagen.Size(data, name)
+		return n, n > smokeBytesCap, err
+	}
+	bytesFn := func(name string) ([]byte, error) {
+		_, big, err := oversized(name)
+		if err != nil {
+			return nil, err
+		}
+		if big {
+			return nil, nil // resolves; the bytes are not read by a dry run
+		}
+		return cache.Bytes(name)
+	}
+	derivedFn := func(name, field string) (string, error) {
+		n, big, err := oversized(name)
+		if err != nil {
+			return "", err
+		}
+		if big {
+			if field == "size" {
+				return strconv.FormatInt(n, 10), nil
+			}
+			return "smoke-" + field, nil
+		}
+		return cache.Derived(name, field)
+	}
+	return bytesFn, derivedFn
 }

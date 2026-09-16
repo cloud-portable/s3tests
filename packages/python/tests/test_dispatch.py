@@ -1,8 +1,12 @@
+import hashlib
+import threading
 import unittest
 from datetime import datetime, timezone
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from cloud_portable_s3tests._config import IDENTITY_ANONYMOUS, Config, Credential, Identities, build_client, with_defaults
 from cloud_portable_s3tests._dispatch import call, go_rfc3339_nano, supported
+from cloud_portable_s3tests._vdata import STREAM_THRESHOLD, DataCache
 from helpers.canned import CannedServer
 
 XML = {"content-type": "application/xml"}
@@ -116,3 +120,68 @@ class TestDispatch(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestStreamingBody(unittest.TestCase):
+    def test_large_body_is_streamed_never_materialized(self):
+        """A body above the threshold goes to boto3 as a file object.
+
+        64 MiB is far enough above STREAM_THRESHOLD to take the streaming branch
+        and small enough for CI; the 5 GiB corpus vector cannot be exercised
+        here. The dataset is a $pattern, like the corpus's own large vector.
+        """
+        size = 64 * 1024 * 1024
+        specs = {"big": {"$pattern": {"pattern": "x", "size": size}}}
+        cache = DataCache(specs)
+
+        # The deterministic assertion: nothing may ask for the whole dataset.
+        materialized = 0
+
+        def resolve_bytes(name):
+            nonlocal materialized
+            materialized += 1
+            return cache.bytes(name)
+
+        # The server digests as it reads; buffering 64 MiB would defeat the point.
+        digest = hashlib.sha256()
+        received = 0
+
+        class Handler(BaseHTTPRequestHandler):
+            def do_PUT(self):  # noqa: N802
+                nonlocal received
+                remaining = int(self.headers.get("Content-Length", 0))
+                while remaining > 0:
+                    chunk = self.rfile.read(min(1 << 16, remaining))
+                    if not chunk:
+                        break
+                    remaining -= len(chunk)
+                    received += len(chunk)
+                    digest.update(chunk)
+                self.send_response(200)
+                self.send_header("ETag", '"d41d8cd98f00b204e9800998ecf8427e"')
+                self.end_headers()
+
+            def log_message(self, *args):
+                pass
+
+        srv = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        url = f"http://127.0.0.1:{srv.server_address[1]}"
+        try:
+            def stream(name):
+                if cache.size(name) <= STREAM_THRESHOLD:
+                    return None
+                return cache.reader(name)
+
+            res = call(
+                client(url), "PutObject",
+                {"Bucket": "b", "Key": "k", "Body": {"$data": "big"}},
+                resolve_bytes, "", stream,
+            )
+            self.assertIsNone(res.err, f"PutObject should succeed: {res.err}")
+            self.assertEqual(received, size, "server must receive the whole body")
+            self.assertEqual(digest.hexdigest(), hashlib.sha256(cache.bytes("big")).hexdigest())
+            self.assertEqual(materialized, 0, "the bytes resolver must not be called for a streamed body")
+        finally:
+            srv.shutdown()
+            srv.server_close()

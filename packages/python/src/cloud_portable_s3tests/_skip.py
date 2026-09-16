@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from typing import Callable, Iterable, Optional
 
-from ._filter import FilterFunc, Vector, tags_matching
+from ._filter import FilterFunc, Vector, tags, tags_matching
 
 SkipFunc = Callable[[Vector], Optional[str]]
 
@@ -45,6 +45,15 @@ def skip_reason(rules: Iterable[SkipFunc], vector: Vector) -> Optional[str]:
 QUIRK_TAG_GLOB = "quirk:*"
 QUIRK_SKIP_REASON = "quirk vector skipped by default (run it with a no_skip filter)"
 
-# The default skip rule: skip quirk vectors. run() prepends it before the
-# caller's explicit rules; a no_skip filter opts them back in.
-default_skip: SkipFunc = skip(QUIRK_SKIP_REASON, tags_matching(QUIRK_TAG_GLOB))
+# Tag marking a vector whose data runs to gigabytes (the 5 GiB copy-source limit
+# needs a source over 5 GiB). Executing one generates and uploads that much, so
+# run() skips them by default; a no_skip filter opts them back in.
+LARGE_TAG = "large"
+LARGE_SKIP_REASON = "large vector skipped by default (generates gigabytes; run it with a no_skip filter)"
+
+# The default skip rules: skip quirk and large vectors. run() prepends them
+# before the caller's explicit rules; a no_skip filter opts them back in.
+default_skips: list[SkipFunc] = [
+    skip(QUIRK_SKIP_REASON, tags_matching(QUIRK_TAG_GLOB)),
+    skip(LARGE_SKIP_REASON, tags(LARGE_TAG)),
+]

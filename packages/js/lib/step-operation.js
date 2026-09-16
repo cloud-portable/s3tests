@@ -2,6 +2,7 @@
 // expectation evaluation shared with $http steps.
 
 import { call } from './dispatch.js'
+import { STREAM_THRESHOLD } from './vdata.js'
 import { presignAndExecute } from './presign.js'
 import { matchValue, matchHeaders, matchError, matchBody, render } from './match.js'
 import { getString } from './jsonpath.js'
@@ -43,7 +44,17 @@ export async function runOperationStep (run, src, sr) {
   }
   let res
   try {
-    res = await call(client, op.name, op.params, (n) => run.cache.bytes(n), run.signal, run.rt.cfg.region)
+    res = await call(
+      client, op.name, op.params, (n) => run.cache.bytes(n), run.signal, run.rt.cfg.region,
+      // Datasets above the threshold are handed to the SDK as a stream so the
+      // request body is never held in memory; smaller ones stay on the cached
+      // bytes path, which is cheaper when referenced more than once.
+      (n) => {
+        const size = run.cache.size(n)
+        if (size <= STREAM_THRESHOLD) return null
+        return { stream: run.cache.stream(n), length: size }
+      }
+    )
   } catch (err) {
     return runnerFail(run, sr, err)
   }

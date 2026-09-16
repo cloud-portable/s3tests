@@ -14,6 +14,27 @@ import { buildInput } from '../lib/coerce.js'
 import { supported } from '../lib/dispatch.js'
 import { presignSupported } from '../lib/presign.js'
 import { parse as parsePath } from '../lib/jsonpath.js'
+import { dataSize } from '@cloud-portable/s3vectors/datagen'
+
+// SMOKE_BYTES_CAP bounds what the dry run will materialize. The dry run proves
+// a vector's references resolve and its inputs coerce; it never compares
+// content against a server, so for a dataset above the cap the declaration
+// alone is checked. Materializing copy-0049's 5 GiB source, or hashing it once
+// per derived field, would cost gigabytes and minutes to prove what the spec
+// already states — and the corpus package's own suite covers the generator.
+const SMOKE_BYTES_CAP = 8 * 1024 * 1024
+
+function smokeData (cache, data) {
+  const oversized = (name) => dataSize(data, name) > SMOKE_BYTES_CAP
+  return {
+    // resolves; the bytes are not read by a dry run
+    bytes: (name) => (oversized(name) ? Buffer.alloc(0) : cache.bytes(name)),
+    derived: (name, field) => {
+      if (!oversized(name)) return cache.derived(name, field)
+      return field === 'size' ? String(dataSize(data, name)) : `smoke-${field}`
+    }
+  }
+}
 
 // The corpus's single known runner limitation, identical to the Go runner.
 const ALLOWED = new Set([
@@ -37,11 +58,12 @@ function smokeVector (v) {
   const problems = []
   const fail = (msg) => problems.push(msg)
   const cache = new DataCache(v.data)
+  const resolve = smokeData(cache, v.data ?? {})
   const scope = new Scope({
     env: { endpoint: 'http://smoke.invalid:9000', region: 'us-east-1' },
     res: {},
     cap: {},
-    data: (name, field) => cache.derived(name, field)
+    data: (name, field) => resolve.derived(name, field)
   })
 
   // Register prerequisite resource attributes exactly as the runner would.
@@ -53,7 +75,7 @@ function smokeVector (v) {
       scope.res[p.handle] = { key: p.key, etag: '"d41d8cd98f00b204e9800998ecf8427e"', versionId: 'smoke-version' }
       if (p.body !== undefined) {
         try {
-          contentValue(scope.value(p.body), (n) => cache.bytes(n))
+          contentValue(scope.value(p.body), (n) => resolve.bytes(n))
         } catch (err) {
           fail(`object prerequisite ${p.handle} body: ${err.message}`)
         }
@@ -86,7 +108,7 @@ function smokeVector (v) {
         fail(`step ${stepNo}: operation ${op.name} is not supported by @aws-sdk/client-s3`)
       } else {
         try {
-          buildInput(op.params ?? {}, (n) => cache.bytes(n))
+          buildInput(op.params ?? {}, (n) => resolve.bytes(n))
         } catch (err) {
           fail(`step ${stepNo}: ${err.message}`)
         }
@@ -94,18 +116,18 @@ function smokeVector (v) {
           fail(`step ${stepNo}: operation ${op.name} cannot be presigned`)
         }
       }
-      smokeExpect(op.expect, cache, fail, stepNo)
+      smokeExpect(op.expect, resolve, fail, stepNo)
       smokeCapture(op.capture, fail, stepNo)
     } else if (interpolated.$http) {
       const st = interpolated.$http
       if (st.body !== undefined) {
         try {
-          contentValue(st.body, (n) => cache.bytes(n))
+          contentValue(st.body, (n) => resolve.bytes(n))
         } catch (err) {
           fail(`step ${stepNo}: body: ${err.message}`)
         }
       }
-      smokeExpect(st.expect, cache, fail, stepNo)
+      smokeExpect(st.expect, resolve, fail, stepNo)
       smokeCapture(st.capture, fail, stepNo)
     } else {
       fail(`step ${stepNo} has no union key`)
@@ -124,7 +146,7 @@ function smokeCapture (spec, fail, stepNo) {
   }
 }
 
-function smokeExpect (exp, cache, fail, stepNo) {
+function smokeExpect (exp, resolve, fail, stepNo) {
   if (exp == null) return
   compileMatchers(exp.error, fail, stepNo)
   compileMatchers(exp.response, fail, stepNo)
@@ -135,7 +157,7 @@ function smokeExpect (exp, cache, fail, stepNo) {
       ('$size' in b || '$md5' in b || '$sha256' in b)
     if (!isDigest) {
       try {
-        contentValue(b, (n) => cache.bytes(n))
+        contentValue(b, (n) => resolve.bytes(n))
       } catch (err) {
         fail(`step ${stepNo}: expect.body: ${err.message}`)
       }
