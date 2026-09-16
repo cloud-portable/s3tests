@@ -220,14 +220,13 @@ func TestCallBodyDrain(t *testing.T) {
 // whole-body buffering is unmistakable. The 5 GiB corpus vector cannot be
 // exercised here.
 //
-// The dataset is a $pattern, like the corpus's own large vector. A $prng dataset
-// would work too, but the corpus version pinned in go.mod allocates a digest per
-// 32-byte block, which would swamp the signal.
+// The dataset is a $prng rather than the $pattern the corpus's own large vector
+// uses: prng generation hashes every 32-byte block, so it is the kind that could
+// allocate while producing the stream, which makes it the stronger case here.
 func TestCallStreamsLargeBodyWithoutBuffering(t *testing.T) {
 	const size = 64 << 20
-	pat := "x"
 	specs := map[string]s3vectors.DataSpec{
-		"big": {Pattern: &s3vectors.PatternData{Pattern: &pat, Size: size}},
+		"big": {Prng: &s3vectors.PrngData{Seed: "dispatch/stream-test", Size: size}},
 	}
 	want, err := datagen.Generate(specs, "big")
 	if err != nil {
