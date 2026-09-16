@@ -1,0 +1,88 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+# Every job installs Node: all three `make test` targets start with the shared
+# report-template sync check (scripts/sync-report-template.js --check).
+#
+# The corpus is a dependency, and the three runners get it differently. Go
+# resolves the pseudo-version pinned in packages/go/go.mod from the module
+# proxy, so its job needs nothing else. The JS and Python packages are not
+# published yet and point at a sibling checkout (../../../s3vectors/...), so
+# those jobs check s3vectors out alongside this repo and therefore test against
+# corpus main rather than the commit Go pins. That mirrors local development,
+# and makes these jobs the drift alarm for corpus changes; pin the `ref:` below
+# if that turns out to be more noise than signal.
+
+jobs:
+  go:
+    name: Test packages/go
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          cache-dependency-path: packages/go/go.mod
+      # Compile the build-tagged files too; `go test` alone never sees them.
+      - run: go build -tags integration ./...
+        working-directory: packages/go
+      - run: make test
+        working-directory: packages/go
+
+  js:
+    name: Test packages/js
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: s3tests
+      - uses: actions/checkout@v4
+        with:
+          repository: cloud-portable/s3vectors
+          path: s3vectors
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # `npm install`, not `npm ci`: the corpus is a file: dependency on the
+      # sibling checkout, which moves independently of this lockfile.
+      - run: npm install
+        working-directory: s3tests/packages/js
+      - run: make test
+        working-directory: s3tests/packages/js
+
+  python:
+    name: Test packages/python
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: s3tests
+      - uses: actions/checkout@v4
+        with:
+          repository: cloud-portable/s3vectors
+          path: s3vectors
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # Creates .venv and installs the corpus then this package, both editable.
+      - run: make setup
+        working-directory: s3tests/packages/python
+      - run: make test
+        working-directory: s3tests/packages/python
