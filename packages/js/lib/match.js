@@ -1,6 +1,6 @@
 // Matcher engine implementing the vector matcher semantics: scalar equality,
 // recursive subset objects, exact-length ordered arrays, assertion objects
-// ($exists/$absent/$eq/$ne/$matches/$length/$contains), plus the header,
+// ($exists/$absent/$eq/$ne/$matches/$length/$contains/$containsAll), plus the header,
 // error and body (content-descriptor / digest) expectation forms.
 
 import { createHash } from 'node:crypto'
@@ -111,6 +111,22 @@ function assertion (path, m, actual, present) {
         const found = actual.some((el) => matchValue(path, arg, el, true).length === 0)
         if (!found) {
           out.push({ path, expected: 'some element matching ' + render(arg), actual: `no match among ${actual.length} element(s)` })
+        }
+        break
+      }
+      case '$containsAll': {
+        // Every listed matcher must match some element; matchers are
+        // independent, so two of them may match the same element. Pair with
+        // $length for set equality.
+        if (!present || !Array.isArray(actual) || !Array.isArray(arg)) {
+          out.push({ path, expected: 'array containing all of ' + render(arg), actual: presence(actual, present) })
+          break
+        }
+        for (const want of arg) {
+          const found = actual.some((el) => matchValue(path, want, el, true).length === 0)
+          if (!found) {
+            out.push({ path, expected: 'some element matching ' + render(want), actual: `no match among ${actual.length} element(s)` })
+          }
         }
         break
       }
