@@ -3,7 +3,9 @@ import assert from 'node:assert/strict'
 import http from 'node:http'
 import { once } from 'node:events'
 import { call, supported, goRFC3339Nano } from '../lib/dispatch.js'
+import { createHash } from 'node:crypto'
 import { withDefaults, buildClient, IDENTITY_ANONYMOUS, Identities } from '../lib/config.js'
+import { DataCache, STREAM_THRESHOLD } from '../lib/vdata.js'
 
 /** Start a canned-response server; returns {url, requests, close}. */
 async function serve (handler) {
@@ -129,4 +131,53 @@ test('goRFC3339Nano matches Go formatting', () => {
   assert.equal(goRFC3339Nano(new Date(Date.UTC(2026, 0, 2, 3, 4, 5))), '2026-01-02T03:04:05Z')
   assert.equal(goRFC3339Nano(new Date(Date.UTC(2026, 0, 2, 3, 4, 5, 120))), '2026-01-02T03:04:05.12Z')
   assert.equal(goRFC3339Nano(new Date(Date.UTC(2026, 0, 2, 3, 4, 5, 7))), '2026-01-02T03:04:05.007Z')
+})
+
+test('a large body is streamed to the SDK, never materialized', async () => {
+  // 64 MiB is far enough above STREAM_THRESHOLD to take the streaming branch
+  // and small enough for CI. The 5 GiB corpus vector cannot be exercised here.
+  // A $pattern dataset, like the corpus's own large vector.
+  const size = 64 * 1024 * 1024
+  const specs = { big: { $pattern: { pattern: 'x', size } } }
+  const cache = new DataCache(specs)
+
+  // The deterministic assertion: nothing may ask for the whole dataset.
+  let materialized = 0
+  const resolveData = (n) => { materialized++; return cache.bytes(n) }
+
+  // The server digests as it reads; buffering 64 MiB here would defeat the point.
+  let received = 0
+  const hash = createHash('sha256')
+  const server = http.createServer((req, res) => {
+    req.on('data', (c) => { received += c.length; hash.update(c) })
+    req.on('end', () => {
+      res.setHeader('ETag', '"d41d8cd98f00b204e9800998ecf8427e"')
+      res.statusCode = 200
+      res.end()
+    })
+  })
+  server.listen(0, '127.0.0.1')
+  await once(server, 'listening')
+  const url = `http://127.0.0.1:${server.address().port}`
+
+  try {
+    const res = await call(
+      client(url), 'PutObject',
+      { Bucket: 'b', Key: 'k', Body: { $data: 'big' } },
+      resolveData, undefined, 'us-east-1',
+      (n) => {
+        const s = cache.size(n)
+        if (s <= STREAM_THRESHOLD) return null
+        return { stream: cache.stream(n), length: s }
+      }
+    )
+    assert.equal(res.err, null, 'PutObject should succeed')
+    assert.equal(received, size, 'server must receive the whole body')
+    assert.equal(hash.digest('hex'), createHash('sha256').update(cache.bytes('big')).digest('hex'),
+      'server must receive the dataset bytes')
+    assert.equal(materialized, 0, 'the bytes resolver must not be called for a streamed body')
+  } finally {
+    server.close()
+    await once(server, 'close')
+  }
 })

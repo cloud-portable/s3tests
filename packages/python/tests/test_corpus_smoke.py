@@ -16,6 +16,36 @@ from cloud_portable_s3tests._interp import Scope
 from cloud_portable_s3tests._jsonpath import parse as parse_path
 from cloud_portable_s3tests._match import compile_regex, content_value
 from cloud_portable_s3tests._vdata import DataCache
+from cloud_portable_s3vectors.datagen import data_size
+
+# Bounds what the dry run will materialize. The dry run proves a vector's
+# references resolve and its inputs coerce; it never compares content against a
+# server, so for a dataset above the cap the declaration alone is checked.
+# Materializing copy-0049's 5 GiB source, or hashing it once per derived field,
+# would cost gigabytes and minutes to prove what the spec already states — and
+# the corpus package's own suite covers the generator.
+SMOKE_BYTES_CAP = 8 * 1024 * 1024
+
+
+class _SmokeData:
+    """Dataset resolver for the dry run, bounded by SMOKE_BYTES_CAP."""
+
+    def __init__(self, cache, data):
+        self._cache = cache
+        self._data = data or {}
+
+    def _oversized(self, name):
+        return data_size(self._data, name) > SMOKE_BYTES_CAP
+
+    def bytes(self, name):
+        if self._oversized(name):
+            return b""  # resolves; the bytes are not read by a dry run
+        return self._cache.bytes(name)
+
+    def derived(self, name, field):
+        if not self._oversized(name):
+            return self._cache.derived(name, field)
+        return str(data_size(self._data, name)) if field == "size" else f"smoke-{field}"
 
 # Known runner limitations, as "<id>: <problem>" strings. botocore still models
 # PutBucketLifecycle (which the Go and JS SDKs dropped), so the Python runner
@@ -39,7 +69,8 @@ def smoke_vector(client, v):
     problems = []
     fail = problems.append
     cache = DataCache(v.get("data"))
-    scope = Scope(env={"endpoint": "http://smoke.invalid:9000", "region": "us-east-1"}, data=cache.derived)
+    resolve = _SmokeData(cache, v.get("data"))
+    scope = Scope(env={"endpoint": "http://smoke.invalid:9000", "region": "us-east-1"}, data=resolve.derived)
 
     # Register prerequisite resource attributes exactly as the runner would.
     for i, prereq in enumerate(v.get("prerequisites") or []):
@@ -50,7 +81,7 @@ def smoke_vector(client, v):
             scope.res[p["handle"]] = {"key": p["key"], "etag": '"d41d8cd98f00b204e9800998ecf8427e"', "versionId": "smoke-version"}
             if "body" in p:
                 try:
-                    content_value(scope.value(p["body"]), cache.bytes)
+                    content_value(scope.value(p["body"]), resolve.bytes)
                 except Exception as err:  # noqa: BLE001
                     fail(f"object prerequisite {p['handle']} body: {err}")
         elif "$credential" in prereq:
@@ -76,19 +107,19 @@ def smoke_vector(client, v):
                 fail(f"step {step_no}: operation {op['name']} is not supported by boto3")
             else:
                 try:
-                    build_input(client.meta.service_model.operation_model(op["name"]), op.get("params") or {}, cache.bytes)
+                    build_input(client.meta.service_model.operation_model(op["name"]), op.get("params") or {}, resolve.bytes)
                 except Exception as err:  # noqa: BLE001
                     fail(f"step {step_no}: {err}")
-            smoke_expect(op.get("expect"), cache, fail, step_no)
+            smoke_expect(op.get("expect"), resolve, fail, step_no)
             smoke_capture(op.get("capture"), fail, step_no)
         elif "$http" in interpolated:
             st = interpolated["$http"]
             if "body" in st:
                 try:
-                    content_value(st["body"], cache.bytes)
+                    content_value(st["body"], resolve.bytes)
                 except Exception as err:  # noqa: BLE001
                     fail(f"step {step_no}: body: {err}")
-            smoke_expect(st.get("expect"), cache, fail, step_no)
+            smoke_expect(st.get("expect"), resolve, fail, step_no)
             smoke_capture(st.get("capture"), fail, step_no)
         else:
             fail(f"step {step_no} has no union key")
@@ -103,7 +134,7 @@ def smoke_capture(spec, fail, step_no):
             fail(f"step {step_no}: capture {name}: {err}")
 
 
-def smoke_expect(exp, cache, fail, step_no):
+def smoke_expect(exp, resolve, fail, step_no):
     if exp is None:
         return
     compile_matchers(exp.get("error"), fail, step_no)
@@ -115,7 +146,7 @@ def smoke_expect(exp, cache, fail, step_no):
         is_digest = isinstance(b, dict) and ("$size" in b or "$md5" in b or "$sha256" in b)
         if not is_digest:
             try:
-                content_value(b, cache.bytes)
+                content_value(b, resolve.bytes)
             except Exception as err:  # noqa: BLE001
                 fail(f"step {step_no}: expect.body: {err}")
 

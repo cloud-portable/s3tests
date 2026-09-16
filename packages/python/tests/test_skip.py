@@ -1,15 +1,35 @@
 import unittest
 
-from cloud_portable_s3tests._skip import skip_reason, default_skip, skip
+from cloud_portable_s3tests._skip import skip_reason, default_skips, skip
 from cloud_portable_s3tests._filter import tags, tags_matching, ids
 
 
 def _is_skipped(v, extra=(), no_skip=()):
-    """Mirror Runner.run's skip decision: the default quirk rule is prepended
-    before the caller's rules, then a no_skip filter opts matching vectors back
-    in (no_skip entries are filters, e.g. tags/tags_matching/ids)."""
-    reason = skip_reason([default_skip, *extra], v)
+    """Mirror Runner.run's skip decision: the default quirk and large rules are
+    prepended before the caller's rules, then a no_skip filter opts matching
+    vectors back in (no_skip entries are filters, e.g. tags/tags_matching/ids)."""
+    reason = skip_reason([*default_skips, *extra], v)
     return reason is not None and not any(u(v) for u in no_skip)
+
+
+class TestDefaultLargeSkip(unittest.TestCase):
+    def test_default_and_opt_in(self):
+        big = {"id": "a", "tags": ["tier-1", "copy", "large"]}
+        plain = {"id": "b", "tags": ["tier-1", "copy"]}
+
+        self.assertTrue(_is_skipped(big))
+        self.assertFalse(_is_skipped(plain))
+        self.assertIn("generates gigabytes", skip_reason(list(default_skips), big))
+
+        self.assertFalse(_is_skipped(big, no_skip=[tags("large")]))
+        self.assertFalse(_is_skipped(big, no_skip=[ids("a")]))
+
+        # no_skip un-skips a matching vector wholesale, not rule by rule: a
+        # vector that is both quirk and large runs once any filter matches it.
+        both = {"id": "c", "tags": ["large", "quirk:not-aws"]}
+        self.assertTrue(_is_skipped(both))
+        self.assertFalse(_is_skipped(both, no_skip=[tags("large")]))
+        self.assertFalse(_is_skipped(both, no_skip=[tags_matching("quirk:*")]))
 
 
 class TestDefaultQuirkSkip(unittest.TestCase):

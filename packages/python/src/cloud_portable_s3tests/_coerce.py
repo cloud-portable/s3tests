@@ -22,16 +22,40 @@ class CoerceError(ValueError):
     """A vector-definition problem (unparseable timestamp, bad content)."""
 
 
-def build_input(operation_model, params: dict[str, Any], resolve: Optional[Resolver]) -> tuple[dict[str, Any], Optional[bytes]]:
+def _data_ref(value: Any) -> Optional[str]:
+    """The dataset name of a bare ``{"$data": name}`` descriptor, else None."""
+    if not isinstance(value, dict) or len(value) != 1:
+        return None
+    name = value.get("$data")
+    return name if isinstance(name, str) else None
+
+
+def build_input(
+    operation_model,
+    params: dict[str, Any],
+    resolve: Optional[Resolver],
+    resolve_stream: Optional[Any] = None,
+) -> tuple[dict[str, Any], Optional[bytes]]:
     """Coerce interpolated vector params for ``operation_model``. Returns the
-    call kwargs and the held-aside Body bytes (None when the operation sends
-    no body)."""
+    call kwargs and the held-aside Body bytes (None when the operation sends no
+    body, or when the body was streamed).
+
+    ``resolve_stream`` is optional: when it returns a file object for a bare
+    ``{"$data": name}`` Body, that object is handed to boto3 instead of the
+    bytes, so a multi-gigabyte body costs one chunk rather than its own size.
+    Returning None means "materialize this one", which is how small datasets
+    stay on the cached-bytes path."""
     body: Optional[bytes] = None
     shape = operation_model.input_shape if operation_model is not None else None
 
     def walk(value: Any, member_shape, key: str) -> Any:
         nonlocal body
         if key == "Body" and member_shape is not None and member_shape.type_name == "blob":
+            name = _data_ref(value)
+            if resolve_stream is not None and name is not None:
+                stream = resolve_stream(name)
+                if stream is not None:
+                    return stream
             body = content_value(value, resolve)
             return body
         if key == "CopySource" and isinstance(value, dict) and isinstance(value.get("Bucket"), str) and isinstance(value.get("Key"), str):

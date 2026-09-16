@@ -22,14 +22,15 @@ export function unsupportedError (name) {
  * @param {string} name operation name
  * @param {object} params interpolated vector params
  * @param {(name: string) => Uint8Array} resolveData
+ * @param {(name: string) => ({stream: import('node:stream').Readable, length: number} | null)} [resolveStream]
  * @param {AbortSignal} [signal]
  * @returns {Promise<{status: number, headers: object, output: unknown,
  *   body: Uint8Array | null, err: Error | null, code: string, msg: string}>}
  */
-export async function call (client, name, params, resolveData, signal, region) {
+export async function call (client, name, params, resolveData, signal, region, resolveStream) {
   const Command = clientS3[name + 'Command']
   if (typeof Command !== 'function') throw unsupportedError(name)
-  const { input } = buildInput(params ?? {}, resolveData)
+  const { input } = buildInput(params ?? {}, resolveData, resolveStream)
   // Every region other than us-east-1 requires a LocationConstraint on
   // CreateBucket; us-east-1 is the legacy default that rejects one. Inject it
   // for the target region so a plain CreateBucket step is portable, unless the

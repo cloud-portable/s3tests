@@ -34,12 +34,16 @@ it, don't restate it.
 
 ## Setup gotcha
 
-The s3vectors packages aren't published yet, so all three runners point at the
-sibling checkout, which must exist next to this repo (`../s3vectors`):
+The s3vectors packages aren't published to npm/PyPI yet, so the JS and Python
+runners point at the sibling checkout, which must exist next to this repo
+(`../s3vectors`). Go resolves from the module proxy instead:
 
-- `packages/go/go.mod` has a `replace` of
-  `github.com/cloud-portable/s3vectors/packages/go` to
-  `../../../s3vectors/packages/go`.
+- `packages/go/go.mod` pins
+  `github.com/cloud-portable/s3vectors/packages/go` to a pseudo-version of a
+  main commit (the Go module is consumable from its git tags, so no `replace`
+  is needed). Upgrade the corpus with
+  `go get github.com/cloud-portable/s3vectors/packages/go@<commit-or-tag>`;
+  unlike JS and Python, Go does **not** pick up local corpus edits.
 - `packages/js/package.json` depends on
   `"@cloud-portable/s3vectors": "file:../../../s3vectors/packages/js"` —
   `npm install` symlinks it, so corpus changes are picked up live, but a fresh
@@ -50,7 +54,7 @@ sibling checkout, which must exist next to this repo (`../s3vectors`):
   the runner package editable (`pyproject.toml` just names
   `cloud-portable-s3vectors`, which would otherwise resolve from PyPI).
 
-Drop all three once the s3vectors packages are public.
+Drop the JS and Python links once those packages are published.
 
 ## Commands
 
@@ -284,6 +288,26 @@ mirror to JS and Python):
 
 ## Invariants — do not break these
 
+- **`quirk:*` and `large` vectors are skipped by default.** `quirk:*` vectors
+  contradict the baseline; `large` vectors generate and upload gigabytes (the
+  5 GiB copy-source limit needs a source over 5 GiB), so a routine run must not
+  pay for them. Both are `Skip` rules applied before any caller option, and a
+  `NoSkip` / `noSkip` / `no_skip` filter opts a vector back in — wholesale, not
+  rule by rule, so one matching filter runs a vector that both rules matched.
+- **A request body above `StreamThreshold` (8 MiB) is streamed, never
+  materialized.** `vdata` hands the SDK a seekable generator instead of bytes,
+  so a gigabyte-scale body costs one chunk of memory: Go a `*datagen.Reader`
+  (`io.Reader` + `io.Seeker`), JS a `Readable` over the corpus web stream plus an
+  explicit `ContentLength`, Python a `DatasetReader` file object. The SDKs derive
+  Content-Length and the SigV4 payload hash by **seeking**, so the stream must
+  stay seekable and is read twice. Below the threshold, bodies stay on the cached
+  bytes path — cheaper when a dataset is referenced more than once. Presigned
+  requests always materialize: the runner sends that body itself.
+- **The offline smoke test bounds what it materializes.** It dry-runs every api
+  vector including the skipped ones, so a dataset over its 8 MiB cap is checked
+  by declaration (`datagen.Size`) rather than generated — otherwise `copy-0049`
+  alone costs gigabytes of RSS on every CI run. The dry run never compares
+  content, so it does not need the bytes.
 - **`blocked` ≠ `fail`**: a prerequisite that can't be established blocks the
   vector; only violated step expectations fail it. Never map one to the other.
 - **`RunnerError`** marks "the runner couldn't execute this vector"

@@ -1,12 +1,22 @@
 // Per-vector dataset cache: multi-megabyte $prng streams are generated once
 // per vector, however many times their bytes or derived values
-// (${data.<name>.<field>}) are referenced. Derived fields are computed
-// locally from the cached bytes (the corpus datagen's `derived` regenerates
-// the dataset on every call); the semantics mirror the datagen reference and
-// are asserted equal in the tests.
+// (${data.<name>.<field>}) are referenced. Derived fields are computed locally
+// from those cached bytes — the corpus `derived` is bounded in memory but
+// re-reads the dataset per field, so one materialization plus N local hashes is
+// cheaper here. The semantics mirror the datagen reference and are asserted
+// equal against it in the tests.
 
 import { createHash } from 'node:crypto'
-import { generate } from '@cloud-portable/s3vectors/datagen'
+import { Readable } from 'node:stream'
+import { generate, generateStream, dataSize } from '@cloud-portable/s3vectors/datagen'
+
+/**
+ * Dataset size above which a caller should stream rather than materialize.
+ * Below it, caching wins: bodies and digests reference the same dataset
+ * repeatedly. Above it, holding the bytes is what makes a gigabyte-scale
+ * vector unrunnable. Keep in step with the Go runner's vdata.StreamThreshold.
+ */
+export const STREAM_THRESHOLD = 8 * 1024 * 1024
 
 export class DataCache {
   /** @param {object|undefined} specs the vector's `data` map */
@@ -25,25 +35,30 @@ export class DataCache {
   bytes (name) {
     let b = this.byteCache.get(name)
     if (!b) {
-      // Resolve $slice through the cache: the corpus generate() would
-      // regenerate the parent dataset on every slice call.
-      const spec = this.specs[name]
-      if (spec?.$slice) {
-        const d = spec.$slice
-        const parentSpec = this.specs[d.of]
-        if (!parentSpec) throw new Error(`slice '${name}' references unknown dataset '${d.of}'`)
-        if (parentSpec.$slice) throw new Error(`slice '${name}' references slice '${d.of}' (chained slices are not allowed)`)
-        const base = this.bytes(d.of)
-        if (d.offset + d.length > base.length) {
-          throw new Error(`slice '${name}' [${d.offset}, ${d.offset + d.length}) exceeds '${d.of}' size ${base.length}`)
-        }
-        b = base.subarray(d.offset, d.offset + d.length)
-      } else {
-        b = generate(this.specs, name)
-      }
+      b = generate(this.specs, name)
       this.byteCache.set(name, b)
     }
     return b
+  }
+
+  /**
+   * The dataset's declared length in bytes, generating nothing.
+   * @param {string} name
+   * @returns {number}
+   */
+  size (name) {
+    return dataSize(this.specs, name)
+  }
+
+  /**
+   * A Node stream over the dataset, generated on demand and never cached — the
+   * point is to not hold the bytes. The corpus exposes a web ReadableStream;
+   * the AWS SDK's Node HTTP handler wants a Readable, so adapt here.
+   * @param {string} name
+   * @returns {Readable}
+   */
+  stream (name) {
+    return Readable.fromWeb(generateStream(this.specs, name))
   }
 
   /**

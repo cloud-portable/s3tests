@@ -35,6 +35,26 @@ func New(specs map[string]s3vectors.DataSpec) *Cache {
 	return &Cache{specs: specs, bytes: map[string][]byte{}}
 }
 
+// StreamThreshold is the dataset size above which a caller should stream rather
+// than materialize. Below it, datasets are small enough that caching wins:
+// bodies and digests reference the same dataset repeatedly, and one
+// materialization plus N local hashes beats N re-reads. Above it, holding the
+// bytes is what makes a gigabyte-scale vector unrunnable.
+const StreamThreshold = 8 << 20
+
+// Size reports the dataset's declared length in bytes, generating nothing.
+func (c *Cache) Size(name string) (int64, error) {
+	return datagen.Size(c.specs, name)
+}
+
+// Reader returns a seekable reader over the dataset. It generates on demand and
+// is deliberately not cached — the point is to never hold the bytes. The reader
+// is an io.Seeker, which the AWS SDK needs to derive Content-Length and to
+// rewind after hashing the payload.
+func (c *Cache) Reader(name string) (*datagen.Reader, error) {
+	return datagen.NewReader(c.specs, name)
+}
+
 // Bytes returns the dataset's bytes (generated on first use). The returned
 // slice is shared — callers must not mutate it.
 func (c *Cache) Bytes(name string) ([]byte, error) {
@@ -52,6 +72,11 @@ func (c *Cache) Bytes(name string) ([]byte, error) {
 // Derived computes a ${data.<name>.<field>} value from the cached bytes.
 // Field semantics mirror datagen.Derived exactly.
 func (c *Cache) Derived(name, field string) (string, error) {
+	// Above the threshold, delegate to the corpus: its Derived digests in
+	// chunks, where this cache would have to hold the whole dataset.
+	if n, err := c.Size(name); err == nil && n > StreamThreshold {
+		return datagen.Derived(c.specs, name, field)
+	}
 	b, err := c.Bytes(name)
 	if err != nil {
 		return "", err

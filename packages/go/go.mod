@@ -8,7 +8,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.107.2
 	github.com/aws/smithy-go v1.27.8
 	github.com/cbroglie/mustache v1.4.2
-	github.com/cloud-portable/s3vectors/packages/go v1.0.1-0.20260908103307-c5fd132c07fb
+	github.com/cloud-portable/s3vectors/packages/go v1.0.1-0.20260916111439-077e6198c24b
 )
 
 require (

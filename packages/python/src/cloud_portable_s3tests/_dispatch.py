@@ -42,14 +42,21 @@ class DispatchResult:
     msg: str = ""
 
 
-def call(client, name: str, params: Optional[dict[str, Any]], resolve: Optional[Resolver], region: str = "") -> DispatchResult:
+def call(
+    client,
+    name: str,
+    params: Optional[dict[str, Any]],
+    resolve: Optional[Resolver],
+    region: str = "",
+    resolve_stream: Optional[Any] = None,
+) -> DispatchResult:
     """Execute one operation. Raises only for *runner* problems (unsupported
     operation, undecodable params); server-side failures are reported inside
     the result."""
     if not supported(client, name):
         raise unsupported_error(name)
     model = client.meta.service_model.operation_model(name)
-    kwargs, _ = build_input(model, params or {}, resolve)
+    kwargs, _ = build_input(model, params or {}, resolve, resolve_stream)
     # Every region other than us-east-1 requires a LocationConstraint on
     # CreateBucket; us-east-1 is the legacy default that rejects one. Inject it
     # for the target region so a plain CreateBucket step is portable, unless the

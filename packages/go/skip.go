@@ -13,9 +13,19 @@ const quirkTagGlob = "quirk:*"
 
 const quirkSkipReason = "quirk vector skipped by default (run it with NoSkip)"
 
-// defaultSkip is applied before any caller option, so Run skips quirk vectors
-// unless a later NoSkip unskips them.
-func defaultSkip(o *runOptions) { Skip(quirkSkipReason, TagsMatching(quirkTagGlob))(o) }
+// largeTag marks a vector whose data runs to gigabytes (the 5 GiB copy-source
+// limit needs a source over 5 GiB). Executing one generates and uploads that
+// much, so Run skips them by default; NoSkip opts them back in.
+const largeTag = "large"
+
+const largeSkipReason = "large vector skipped by default (generates gigabytes; run it with NoSkip)"
+
+// defaultSkip is applied before any caller option, so Run skips quirk and large
+// vectors unless a later NoSkip unskips them.
+func defaultSkip(o *runOptions) {
+	Skip(quirkSkipReason, TagsMatching(quirkTagGlob))(o)
+	Skip(largeSkipReason, Tags(largeTag))(o)
+}
 
 // RunOption adjusts how Run treats the vectors it is given. Options are
 // applied in order; see Skip, SkipFunc and NoSkip.
@@ -51,8 +61,8 @@ func (o *runOptions) skipReason(v *s3vectors.Vector) (string, bool) {
 }
 
 // NoSkip forces vectors matching every given filter (logical AND, exactly as
-// Skip selects) to run even when a Skip rule — including the default quirk
-// skip — would skip them. Several NoSkip options compose: a vector matched by
+// Skip selects) to run even when a Skip rule — including the default quirk and
+// large skips — would skip them. Several NoSkip options compose: a vector matched by
 // any of them runs. Filters are the same ones Skip and ApplyFilters take, so a
 // vector can be un-skipped by tag, id or group. Examples:
 //

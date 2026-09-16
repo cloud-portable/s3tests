@@ -1,14 +1,34 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { skipReason, defaultSkip, skip } from '../lib/skip.js'
+import { skipReason, defaultSkips, skip } from '../lib/skip.js'
 import { tags, tagsMatching, ids } from '../lib/filter.js'
 
-// Mirror runner.run's skip decision: the default quirk rule is prepended before
-// the caller's rules, then a noSkip filter opts matching vectors back in.
+// Mirror runner.run's skip decision: the default quirk and large rules are
+// prepended before the caller's rules, then a noSkip filter opts matching
+// vectors back in.
 const isSkipped = (v, { skip: extra = [], noSkip = [] } = {}) => {
-  const reason = skipReason([defaultSkip, ...extra], v)
+  const reason = skipReason([...defaultSkips, ...extra], v)
   return reason !== undefined && !noSkip.some((u) => u(v))
 }
+
+test('large vectors are skipped by default; noSkip filters opt back in', () => {
+  const big = { id: 'a', tags: ['tier-1', 'copy', 'large'] }
+  const plain = { id: 'b', tags: ['tier-1', 'copy'] }
+
+  assert.ok(isSkipped(big), 'large skipped by default')
+  assert.ok(!isSkipped(plain), 'non-large not skipped')
+  assert.match(skipReason([...defaultSkips], big), /generates gigabytes/)
+
+  assert.ok(!isSkipped(big, { noSkip: [tags('large')] }), 'noSkip tags large runs it')
+  assert.ok(!isSkipped(big, { noSkip: [ids('a')] }), 'noSkip by id runs it')
+
+  // noSkip un-skips a matching vector wholesale, not rule by rule: a vector
+  // that is both quirk and large runs once any noSkip filter matches it.
+  const both = { id: 'c', tags: ['large', 'quirk:not-aws'] }
+  assert.ok(isSkipped(both), 'quirk+large skipped by default')
+  assert.ok(!isSkipped(both, { noSkip: [tags('large')] }), 'one matching noSkip runs it')
+  assert.ok(!isSkipped(both, { noSkip: [tagsMatching('quirk:*')] }), 'either filter is enough')
+})
 
 test('quirk vectors are skipped by default; noSkip filters opt back in', () => {
   const quirk = { id: 'a', tags: ['tier-1', 'quirk:not-aws'] }

@@ -1,13 +1,14 @@
 package s3tests
 
 import (
+	"strings"
 	"testing"
 
 	s3vectors "github.com/cloud-portable/s3vectors/packages/go"
 )
 
 // applyRunOptions mirrors Run's initialization so skipReason can be tested in
-// isolation: quirks are skipped by default.
+// isolation: quirk and large vectors are skipped by default.
 func applyRunOptions(opts ...RunOption) runOptions {
 	o := runOptions{}
 	defaultSkip(&o)
@@ -75,5 +76,47 @@ func TestDefaultQuirkSkip(t *testing.T) {
 	}
 	if !skipped(byID, dir) {
 		t.Error("NoSkip(IDs) must not un-skip other quirks")
+	}
+}
+
+func TestDefaultLargeSkip(t *testing.T) {
+	big := &s3vectors.Vector{ID: "a", Tags: []string{"tier-1", "copy", "large"}}
+	plain := &s3vectors.Vector{ID: "b", Tags: []string{"tier-1", "copy"}}
+	both := &s3vectors.Vector{ID: "c", Tags: []string{"large", "quirk:not-aws"}}
+
+	skipped := func(o runOptions, v *s3vectors.Vector) bool {
+		_, ok := o.skipReason(v)
+		return ok
+	}
+
+	def := applyRunOptions()
+	if !skipped(def, big) {
+		t.Error("large vector should be skipped by default")
+	}
+	if skipped(def, plain) {
+		t.Error("non-large vector should not be skipped")
+	}
+	if reason, _ := def.skipReason(big); !strings.Contains(reason, "generates gigabytes") {
+		t.Errorf("large skip reason = %q", reason)
+	}
+
+	// NoSkip opts it back in, by tag or by id.
+	if skipped(applyRunOptions(NoSkip(Tags(largeTag))), big) {
+		t.Error("NoSkip(Tags(large)) should run the large vector")
+	}
+	if skipped(applyRunOptions(NoSkip(IDs("a"))), big) {
+		t.Error("NoSkip(IDs) should run the large vector")
+	}
+
+	// NoSkip un-skips a matching vector wholesale, not rule by rule: a vector
+	// that is both quirk and large runs once any NoSkip filter matches it.
+	if !skipped(applyRunOptions(), both) {
+		t.Error("quirk+large vector should be skipped by default")
+	}
+	if skipped(applyRunOptions(NoSkip(Tags(largeTag))), both) {
+		t.Error("one matching NoSkip should run the quirk+large vector")
+	}
+	if skipped(applyRunOptions(NoSkip(TagsMatching("quirk:*"))), both) {
+		t.Error("either NoSkip filter should be enough")
 	}
 }

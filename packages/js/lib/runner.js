@@ -6,7 +6,7 @@ import { S3Client } from '@aws-sdk/client-s3'
 import { withDefaults, buildClient, Identities } from './config.js'
 import { defaultProvisioner } from './provision.js'
 import { runVector, newResult } from './vector.js'
-import { skipReason, defaultSkip } from './skip.js'
+import { skipReason, defaultSkips } from './skip.js'
 
 /** A tiny push/pull channel closed when the producers finish. */
 class AsyncQueue {
@@ -79,7 +79,7 @@ export class Runner {
     // Quirk vectors are skipped by default (they contradict the baseline
     // vectors); a later noSkip filter unskips them. The default rule is
     // prepended before the caller's explicit rules.
-    const rules = [defaultSkip, ...skip]
+    const rules = [...defaultSkips, ...skip]
     const unskip = noSkip
     const ac = new AbortController()
     const onOuter = () => ac.abort(signal.reason)

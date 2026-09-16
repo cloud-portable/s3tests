@@ -14,6 +14,7 @@ from ._presign import presign_and_execute
 from ._rawhttp import parse_xml_error
 from ._result import CheckFailure, StepResult
 from ._run import Run, runner_fail, track_bucket, track_key
+from ._vdata import STREAM_THRESHOLD
 
 # Statuses whose error code cannot appear on the wire (HEAD responses and
 # 304s have no body) mapped to the codes they imply.
@@ -47,7 +48,15 @@ def run_operation_step(run: Run, src: dict, sr: StepResult) -> None:
         sr.err = "run cancelled"
         return
     try:
-        res = call(client, op["name"], op.get("params"), run.cache.bytes, run.rt.cfg.region)
+        # Datasets above the threshold are handed to boto3 as a file object so
+        # the request body is never held in memory; smaller ones stay on the
+        # cached-bytes path, which is cheaper when referenced more than once.
+        def _stream(name: str):
+            if run.cache.size(name) <= STREAM_THRESHOLD:
+                return None
+            return run.cache.reader(name)
+
+        res = call(client, op["name"], op.get("params"), run.cache.bytes, run.rt.cfg.region, _stream)
     except Exception as err:  # noqa: BLE001 - unsupported op / undecodable params
         return runner_fail(run, sr, err)
     sr.status = res.status

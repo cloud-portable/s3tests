@@ -12,7 +12,7 @@ from cloud_portable_s3vectors import manifest
 from ._config import IDENTITY_MAIN, Config, Identities, build_client, with_defaults
 from ._provision import Target, default_provisioner
 from ._run import Runtime
-from ._skip import SkipFunc, skip_reason, default_skip
+from ._skip import SkipFunc, skip_reason, default_skips
 from ._filter import FilterFunc
 from ._vector import new_result, run_vector
 from ._result import VectorResult
@@ -73,7 +73,7 @@ class Runner:
         # Quirk vectors are skipped by default (they contradict the baseline
         # vectors); a later no_skip filter unskips them. The default
         # rule is prepended before the caller's explicit rules.
-        rules = [default_skip, *(skip or [])]
+        rules = [*default_skips, *(skip or [])]
         unskip = list(no_skip or [])
         cxl = _Cancel(cancel)
         out: queue.Queue = queue.Queue()
