@@ -93,6 +93,14 @@ The integration tests also run standalone against any endpoint:
 `S3TESTS_ENDPOINT=... .venv/bin/python -m unittest discover -s tests -p test_integration.py`
 (Python).
 
+`.github/workflows/ci.yml` runs `make test` for each package on every PR and
+push to main; keep it green. It does not run the integration suite, which needs
+Docker. The JS and Python jobs check the s3vectors repo out alongside this one
+(the `file:` and editable installs point at a sibling checkout) and so test
+against corpus main, while the Go job resolves the pseudo-version pinned in
+`packages/go/go.mod` — a corpus change can therefore reach the JS and Python
+jobs before Go.
+
 For Go changes, always run `gofmt -w`, `go vet ./...` and `go test ./...`
 before considering a change done, and compile the tagged files:
 `go build -tags integration ./...`. For JS changes, `npm test` must pass. For
